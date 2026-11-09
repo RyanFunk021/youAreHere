@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.DS_Store
+# Test maps live here. Club/resort maps are copyrighted: never commit them.
+private/
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.pdf
+
+# Planning docs (premise/spec) stay local unless deliberately published
+.claude/
