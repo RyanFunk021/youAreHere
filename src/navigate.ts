@@ -19,6 +19,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   const acc = L.circle([0, 0], { radius: 1, color: '#007aff', weight: 1, fillOpacity: 0.12, interactive: false });
   const dot = L.circleMarker([0, 0], { radius: 8, color: '#fff', weight: 3, fillColor: '#007aff', fillOpacity: 1, interactive: false });
   let here: L.LatLng | null = null;
+  let lockFailed = false;
 
   const watch = navigator.geolocation.watchPosition(pos => {
     const { latitude, longitude, accuracy } = pos.coords;
@@ -28,14 +29,19 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     dot.setLatLng(here).addTo(m);
     if (accuracy <= MAX_TRAIL_ACCURACY_M) { trailLL.push(ll); trail.addLatLng(here); }
     if (trailLL.length <= 1) m.setView(here, Math.max(m.getZoom(), -1));
-    status.textContent = `±${Math.round(accuracy)} m · ${trailLL.length} pts`;
+    else if (!m.getBounds().pad(-0.2).contains(here)) m.panTo(here); // follow when near the edge
+    status.textContent = `±${Math.round(accuracy)} m · ${trailLL.length} pts${lockFailed ? ' · screen may sleep' : ''}`;
   }, err => { status.textContent = `GPS: ${err.message}`; }, { enableHighAccuracy: true, maximumAge: 0 });
 
   root.querySelector('#recenter')!.addEventListener('click', () => { if (here) m.panTo(here); });
 
   // Keep the screen on (v1 is screen-on only; iOS stops GPS when locked).
+  // A silent failure here looks like a GPS failure mid-ride, so say so in the status.
   let lock: WakeLockSentinel | undefined;
-  const grab = async () => { lock = await navigator.wakeLock?.request('screen'); };
+  const grab = async () => {
+    try { await lock?.release(); lock = await navigator.wakeLock.request('screen'); lockFailed = false; }
+    catch { lockFailed = true; status.textContent += ' · screen may sleep'; }
+  };
   const onVis = () => { if (document.visibilityState === 'visible') grab(); };
   grab();
   document.addEventListener('visibilitychange', onVis);

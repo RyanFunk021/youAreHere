@@ -1,5 +1,5 @@
 import * as L from 'leaflet';
-import { fitAffine, pxToLL, residuals, rms, suspect, type Px } from './georef';
+import { fitAffine, pxToLL, residuals, rms, suspect, type LatLng, type Px } from './georef';
 import { photoMap, pin, pxToSimple, simpleToPx } from './photo';
 import { HOME, HOME_ZOOM, SATELLITE, STREETS } from './config';
 import type { SavedMap } from './store';
@@ -18,35 +18,44 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
   L.control.layers({ Satellite: imagery, Map: streets }, { 'Map overlay': streetsOver }, { position: 'topright' }).addTo(sat);
 
   if (map.points.length) sat.fitBounds(L.latLngBounds(map.points.map(p => p.ll)), { padding: [30, 30], maxZoom: 17 });
-  else sat.setView(HOME, HOME_ZOOM);
+  else {
+    // First calibration usually happens at the trailhead: start where the user is.
+    sat.setView(HOME, HOME_ZOOM);
+    navigator.geolocation.getCurrentPosition(p => sat.setView([p.coords.latitude, p.coords.longitude], 16), () => {}, { enableHighAccuracy: true });
+  }
 
   const phLayer = L.layerGroup().addTo(ph);
   const satLayer = L.layerGroup().addTo(sat);
-  let pending: Px | null = null;
+  // A tap only places a pending point; re-tap to adjust. "Add pair" commits.
+  // (A fingertip covers the target, and closing the layers menu is also a map click.)
+  let pendingPx: Px | null = null;
+  let pendingLL: LatLng | null = null;
 
   ph.on('click', e => {
-    pending = simpleToPx(e.latlng);
+    pendingPx = simpleToPx(e.latlng);
     // Once a fit exists, jump the satellite to where it predicts this pixel is.
     const f = fitAffine(map.points);
-    if (f) sat.panTo(pxToLL(f, pending));
+    if (f && !pendingLL) sat.panTo(pxToLL(f, pendingPx));
     draw();
   });
 
   sat.on('click', e => {
-    if (!pending) return;
-    map.points.push({ px: pending, ll: [e.latlng.lat, e.latlng.lng] });
-    pending = null;
-    save();
-    onPointsChanged();
+    if (!pendingPx) return;
+    pendingLL = [e.latlng.lat, e.latlng.lng];
     draw();
   });
 
   bar.addEventListener('click', e => {
-    const i = (e.target as HTMLElement).dataset.del;
-    if (i === undefined) return;
-    map.points.splice(+i, 1);
-    save();
-    onPointsChanged();
+    const t = e.target as HTMLElement;
+    if (t.id === 'add' && pendingPx && pendingLL) {
+      map.points.push({ px: pendingPx, ll: pendingLL });
+    } else if (t.id === 'cancel') {
+      // just clear pending below
+    } else if (t.dataset.del !== undefined) {
+      map.points.splice(+t.dataset.del, 1);
+    } else return;
+    if (t.id !== 'cancel') { save(); onPointsChanged(); }
+    pendingPx = pendingLL = null;
     draw();
   });
 
@@ -64,18 +73,24 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
       L.marker(pxToSimple(p.px), { icon: pin(i + 1, cls), interactive: false }).addTo(phLayer);
       L.marker(p.ll, { icon: pin(i + 1, cls), interactive: false }).addTo(satLayer);
     });
-    if (pending) L.marker(pxToSimple(pending), { icon: pin(map.points.length + 1, 'pending'), interactive: false }).addTo(phLayer);
-
     const n = map.points.length;
-    const hint = pending ? `Now tap point ${n + 1} on the satellite`
+    if (pendingPx) L.marker(pxToSimple(pendingPx), { icon: pin(n + 1, 'pending'), interactive: false }).addTo(phLayer);
+    if (pendingLL) L.marker(pendingLL, { icon: pin(n + 1, 'pending'), interactive: false }).addTo(satLayer);
+
+    const hint = pendingPx && !pendingLL ? `Tap the same spot on the satellite`
+      : pendingPx ? `Zoom in and re-tap either side to adjust`
       : n < 3 ? `Tap a spot on the photo (${n}/3)`
+      : !fitAffine(map.points) ? 'Points are in a line · add one off to the side'
       : n < 4 ? 'Ready to navigate · add a 4th point to check accuracy'
       : bad >= 0 ? `Fit ±${Math.round(err!)} m · #${bad + 1} looks mis-tapped (±${Math.round(sus!.rmsWithout)} m without it)`
       : `Fit ±${Math.round(err!)} m${n < 5 ? ' · 5+ points to spot a mis-tap' : ''}`;
+    const actions = pendingPx
+      ? `<div class="actions"><button id="cancel" class="btn">Cancel</button><button id="add" class="btn on" ${pendingLL ? '' : 'disabled'}>Add pair ${n + 1}</button></div>`
+      : '';
     const chips = map.points.map((_, i) =>
       `<span class="chip ${i === bad ? 'bad' : ''}">${i + 1}${res ? ` · ${Math.round(res[i])} m` : ''}<b data-del="${i}">✕</b></span>`
     ).join('');
-    bar.innerHTML = `<div class="hint">${hint}</div><div class="chips">${chips}</div>`;
+    bar.innerHTML = `<div class="hint">${hint}</div>${actions || `<div class="chips">${chips}</div>`}`;
   }
   draw();
 
