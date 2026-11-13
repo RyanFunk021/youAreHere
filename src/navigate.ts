@@ -20,18 +20,39 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   const dot = L.circleMarker([0, 0], { radius: 8, color: '#fff', weight: 3, fillColor: '#007aff', fillOpacity: 1, interactive: false });
   let here: L.LatLng | null = null;
   let lockFailed = false;
+  let fixes = 0;
+
+  // While waiting, show elapsed time and the permission state, so a blocked
+  // permission doesn't look the same as a slow fix.
+  const t0 = Date.now();
+  let perm = '';
+  navigator.permissions?.query({ name: 'geolocation' }).then(p => { perm = p.state; p.onchange = () => { perm = p.state; }; }).catch(() => {});
+  let lastErr = '';
+  const waiting = setInterval(() => {
+    if (fixes) return;
+    status.textContent = `Waiting for GPS… ${Math.round((Date.now() - t0) / 1000)} s${perm ? ` · permission: ${perm}` : ''}${lastErr ? ` · ${lastErr}` : ''}`;
+  }, 500);
 
   const watch = navigator.geolocation.watchPosition(pos => {
     const { latitude, longitude, accuracy } = pos.coords;
+    fixes++;
+    // Status first, so a failure in the map code below can't leave "Waiting…" on screen.
+    status.textContent = `±${Math.round(accuracy)} m · ${trailLL.length} pts${lockFailed ? ' · screen may sleep' : ''}`;
     const ll: LatLng = [latitude, longitude];
     here = toMap(ll);
     acc.setLatLng(here).setRadius(accuracy / fit.metersPerPx).addTo(m);
     dot.setLatLng(here).addTo(m);
     if (accuracy <= MAX_TRAIL_ACCURACY_M) { trailLL.push(ll); trail.addLatLng(here); }
-    if (trailLL.length <= 1) m.setView(here, Math.max(m.getZoom(), -1));
+    if (fixes === 1) m.setView(here, Math.max(m.getZoom(), -1));
     else if (!m.getBounds().pad(-0.2).contains(here)) m.panTo(here); // follow when near the edge
-    status.textContent = `±${Math.round(accuracy)} m · ${trailLL.length} pts${lockFailed ? ' · screen may sleep' : ''}`;
-  }, err => { status.textContent = `GPS: ${err.message}`; }, { enableHighAccuracy: true, maximumAge: 0 });
+  }, err => {
+    // 1 = denied, 2 = unavailable, 3 = timeout (the watch keeps trying after a timeout).
+    lastErr = err.code === 1
+      ? 'Location blocked. Settings → Privacy & Security → Location Services → Safari Websites → While Using; then Safari aA → Website Settings → Location → Allow, and reload.'
+      : err.code === 2 ? 'Location unavailable: is Location Services on?'
+      : 'no fix after 20 s, still trying (try outdoors)';
+    if (!fixes || err.code !== 3) status.textContent = `GPS: ${lastErr}`;
+  }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
 
   root.querySelector('#recenter')!.addEventListener('click', () => { if (here) m.panTo(here); });
 
@@ -47,6 +68,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   document.addEventListener('visibilitychange', onVis);
 
   return () => {
+    clearInterval(waiting);
     navigator.geolocation.clearWatch(watch);
     document.removeEventListener('visibilitychange', onVis);
     lock?.release();
