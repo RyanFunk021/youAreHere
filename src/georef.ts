@@ -110,6 +110,15 @@ export function llToPx(f: Fit, ll: LatLng): Px {
   return [(m[4] * dx - m[1] * dy) / det, (-m[3] * dx + m[0] * dy) / det];
 }
 
+// Direction of true north on the photo, in degrees clockwise from the photo's "up".
+// Inverse of the fit's linear part applied to one meter north: (du, dv) = (-m1, m0) / det.
+export function northOnPhotoDeg(f: Fit): number {
+  const [a, b, , d, e] = f.m;
+  const det = a * e - b * d;
+  const du = -b / det, dv = a / det;
+  return ((Math.atan2(du, -dv) * 180) / Math.PI + 360) % 360; // screen "up" is -v
+}
+
 // In-sample residual per point, ground meters. With exactly 3 points an affine fit
 // is exact (all zeros), so residuals only mean anything from 4 points.
 export function residuals(pts: ControlPoint[], f = fitAffine(pts)): number[] | null {

@@ -1,5 +1,6 @@
 import * as L from 'leaflet';
-import { distM, fitAffine, llToPx, pathM, type LatLng } from './georef';
+import { distM, fitAffine, llToPx, northOnPhotoDeg, pathM, type LatLng } from './georef';
+import { compassWidget } from './compass';
 import { photoMap, pxToSimple } from './photo';
 import { MAX_TRAIL_ACCURACY_M, MIN_TRAIL_STEP_M } from './config';
 import { loadTrail, saveTrail, type SavedMap, type Trail } from './store';
@@ -81,6 +82,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
 
   root.querySelector('#recenter')!.addEventListener('click', () => { if (here) m.panTo(here); });
+  const removeCompass = compassWidget(root, northOnPhotoDeg(fit));
 
   // Keep the screen on (v1 is screen-on only; iOS stops GPS when locked).
   // A silent failure here looks like a GPS failure mid-ride, so say so in the status.
@@ -94,6 +96,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   document.addEventListener('visibilitychange', onVis);
 
   return () => {
+    removeCompass();
     save();
     clearInterval(autosave);
     document.removeEventListener('visibilitychange', onHide);
