@@ -2,7 +2,7 @@ import 'leaflet/dist/leaflet.css';
 import './style.css';
 import { loadMap, saveMap, type SavedMap } from './store';
 import { fitAffine } from './georef';
-import { pdfToImage } from './pdf';
+import { pdfToImage, preloadPdf } from './pdf';
 import { showCalibrate } from './calibrate';
 import { showNavigate } from './navigate';
 
@@ -34,26 +34,49 @@ function go(screen: 'cal' | 'nav') {
 file.addEventListener('change', async () => {
   const f = file.files![0];
   if (current?.points.length && !confirm('Replace the calibrated map? Its points will be lost.')) { file.value = ''; return; }
-  let blob: Blob = f;
-  if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
-    teardown?.(); teardown = undefined;
-    const say = (s: string) => { view.innerHTML = `<div class="empty">${s}</div>`; };
-    blob = await pdfToImage(f, say);
+  teardown?.(); teardown = undefined;
+
+  // Show the current stage and a running clock, so "slow" and "stuck" look different,
+  // and show the error instead of leaving a stale status on screen.
+  const t0 = performance.now();
+  const secs = () => ((performance.now() - t0) / 1000).toFixed(1);
+  let stage = 'Reading file';
+  const setStage = (s: string) => { console.info(`[import] ${stage} done at ${secs()}s`); stage = s; };
+  const render = () => { view.innerHTML = `<div class="empty"><div class="stage">${stage}…</div><div class="clock">${secs()} s</div></div>`; };
+  render();
+  const tick = setInterval(render, 200);
+  try {
+    let blob: Blob = f;
+    if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) blob = await pdfToImage(f, setStage);
+    setStage('Decoding image');
+    // <img> natural size respects EXIF orientation, same as Leaflet's imageOverlay.
+    const img = new Image();
+    img.src = URL.createObjectURL(blob);
+    await img.decode();
+    current = { blob, w: img.naturalWidth, h: img.naturalHeight, points: [] };
+    URL.revokeObjectURL(img.src);
+    setStage('Saving');
+    await saveMap(current);
+    setStage('Done');
+  } catch (e) {
+    clearInterval(tick);
+    view.innerHTML = `<div class="empty"><div class="stage">Couldn't load this file (failed while: ${stage})</div><pre class="err"></pre></div>`;
+    view.querySelector('.err')!.textContent = String(e);
+    console.error(e);
+    return;
+  } finally {
+    clearInterval(tick);
+    file.value = '';
   }
-  // <img> natural size respects EXIF orientation, same as Leaflet's imageOverlay.
-  const img = new Image();
-  img.src = URL.createObjectURL(blob);
-  await img.decode();
-  current = { blob, w: img.naturalWidth, h: img.naturalHeight, points: [] };
-  URL.revokeObjectURL(img.src);
-  await saveMap(current);
-  file.value = '';
   go('cal');
 });
 
+// Start fetching pdf.js while the user is still in the file picker.
+const preload = () => { preloadPdf(); file.click(); };
+
 // A real button calling file.click() (inside the tap's user gesture) is more reliable
 // on iOS than a <label> wrapping a display:none input.
-document.getElementById('b-load')!.addEventListener('click', () => file.click());
+document.getElementById('b-load')!.addEventListener('click', preload);
 bCal.addEventListener('click', () => go('cal'));
 bNav.addEventListener('click', () => go('nav'));
 
@@ -68,5 +91,5 @@ if (!current) {
       <li>Navigate: your GPS dot appears on the photo</li>
     </ol>
   </div>`;
-  view.querySelector('#pick')!.addEventListener('click', () => file.click());
+  view.querySelector('#pick')!.addEventListener('click', preload);
 } else go(fitAffine(current.points) ? 'nav' : 'cal');

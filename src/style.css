@@ -11,6 +11,9 @@ main { flex: 1; position: relative; min-height: 0; }
 .empty { padding: 48px 24px; color: #aaa; }
 .empty .big { display: block; width: 100%; padding: 18px 0; font-size: 18px; font-weight: 600; }
 .empty ol { margin: 28px 0 0; padding-left: 22px; line-height: 1.6; }
+.empty .stage { font-size: 17px; color: #ddd; }
+.empty .clock { margin-top: 8px; font: 600 28px ui-monospace, monospace; color: #0a84ff; }
+.empty .err { white-space: pre-wrap; color: #ff6b6b; font-size: 13px; }
 
 .cal { display: grid; grid-template-rows: 1fr auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; }
 #ph, #sat, #nav { height: 100%; width: 100%; background: #222; }
