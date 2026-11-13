@@ -2,6 +2,7 @@ import 'leaflet/dist/leaflet.css';
 import './style.css';
 import { loadMap, saveMap, type SavedMap } from './store';
 import { fitAffine } from './georef';
+import { pdfToImage } from './pdf';
 import { showCalibrate } from './calibrate';
 import { showNavigate } from './navigate';
 
@@ -33,11 +34,17 @@ function go(screen: 'cal' | 'nav') {
 file.addEventListener('change', async () => {
   const f = file.files![0];
   if (current?.points.length && !confirm('Replace the calibrated map? Its points will be lost.')) { file.value = ''; return; }
+  let blob: Blob = f;
+  if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
+    teardown?.(); teardown = undefined;
+    const say = (s: string) => { view.innerHTML = `<div class="empty">${s}</div>`; };
+    blob = await pdfToImage(f, say);
+  }
   // <img> natural size respects EXIF orientation, same as Leaflet's imageOverlay.
   const img = new Image();
-  img.src = URL.createObjectURL(f);
+  img.src = URL.createObjectURL(blob);
   await img.decode();
-  current = { blob: f, w: img.naturalWidth, h: img.naturalHeight, points: [] };
+  current = { blob, w: img.naturalWidth, h: img.naturalHeight, points: [] };
   URL.revokeObjectURL(img.src);
   await saveMap(current);
   file.value = '';
@@ -54,9 +61,9 @@ current = await loadMap();
 if (!current) {
   syncButtons();
   view.innerHTML = `<div class="empty">
-    <button id="pick" class="btn on big">📷 Choose a map photo</button>
+    <button id="pick" class="btn on big">📷 Choose a map photo or PDF</button>
     <ol>
-      <li>Take or pick a photo of a trail map</li>
+      <li>Take a photo of a trail map, or pick a photo or PDF</li>
       <li>Match 4–6 spots on it to the satellite view</li>
       <li>Navigate: your GPS dot appears on the photo</li>
     </ol>
