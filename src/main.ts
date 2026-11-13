@@ -44,11 +44,22 @@ file.addEventListener('change', async () => {
   go('cal');
 });
 
+// A real button calling file.click() (inside the tap's user gesture) is more reliable
+// on iOS than a <label> wrapping a display:none input.
+document.getElementById('b-load')!.addEventListener('click', () => file.click());
 bCal.addEventListener('click', () => go('cal'));
 bNav.addEventListener('click', () => go('nav'));
 
 current = await loadMap();
 if (!current) {
   syncButtons();
-  view.innerHTML = `<div class="empty">Load a photo of a trail map to start.</div>`;
+  view.innerHTML = `<div class="empty">
+    <button id="pick" class="btn on big">📷 Choose a map photo</button>
+    <ol>
+      <li>Take or pick a photo of a trail map</li>
+      <li>Match 4–6 spots on it to the satellite view</li>
+      <li>Navigate: your GPS dot appears on the photo</li>
+    </ol>
+  </div>`;
+  view.querySelector('#pick')!.addEventListener('click', () => file.click());
 } else go(fitAffine(current.points) ? 'nav' : 'cal');
