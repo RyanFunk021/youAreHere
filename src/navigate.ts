@@ -1,9 +1,9 @@
 import * as L from 'leaflet';
-import { distM, fitAffine, llToPx, northOnPhotoDeg, pathM, type LatLng } from './georef';
+import { distM, fitAffine, llToPx, northOnPhotoDeg, pathM, type LatLng, type Pt } from './georef';
 import { compassWidget } from './compass';
 import { photoMap, pxToSimple } from './photo';
 import { MAX_TRAIL_ACCURACY_M, MIN_TRAIL_STEP_M } from './config';
-import { loadTrail, saveTrail, type SavedMap, type Trail } from './store';
+import { getSetting, loadTrail, saveTrail, setSetting, type Crumb, type SavedMap, type Trail } from './store';
 
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`);
 
@@ -13,14 +13,14 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   const fit = fitAffine(map.points)!;
   const url = URL.createObjectURL(map.blob);
   const m = photoMap(root.querySelector<HTMLElement>('#nav')!, url, map.w, map.h);
-  const toMap = (ll: LatLng) => pxToSimple(llToPx(fit, ll));
+  const toMap = (p: Pt) => pxToSimple(llToPx(fit, [p[0], p[1]]));
 
   // Breadcrumbs are saved per map as lat/lng (so recalibrating re-projects them).
   // Earlier rides load as their own segments; this session appends a new one.
   const style = { color: '#ff2d55', weight: 4, opacity: 0.85 };
   let past: Trail | null = null;      // null until loaded; never save before then
   let pastM = 0;
-  const seg: LatLng[] = [];
+  const seg: Crumb[] = [];
   let segM = 0;
   let dirty = false;
   const pastLine = L.polyline([], style).addTo(m);
@@ -88,7 +88,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     if (accuracy <= MAX_TRAIL_ACCURACY_M) {
       const last = seg[seg.length - 1];
       const step = last ? distM(last, ll) : 0;
-      if (!last || step >= MIN_TRAIL_STEP_M) { seg.push(ll); segM += step; dirty = true; trail.addLatLng(toMap(ll)); }
+      if (!last || step >= MIN_TRAIL_STEP_M) { seg.push([latitude, longitude, Date.now()]); segM += step; dirty = true; trail.addLatLng(toMap(ll)); }
     }
     status.textContent = `±${Math.round(accuracy)} m · this ride ${km(segM)} · total ${km(pastM + segM)}${lockFailed ? ' · screen may sleep' : ''}`;
     here = toMap(ll);
@@ -113,20 +113,40 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   root.querySelector('#recenter')!.addEventListener('click', () => { if (here) m.panTo(here); });
   const removeCompass = compassWidget(root, northOnPhotoDeg(fit));
 
-  // Keep the screen on (v1 is screen-on only; iOS stops GPS when locked).
-  // A silent failure here looks like a GPS failure mid-ride, so say so in the status.
+  // Screen: kept on by default. Battery saver lets it sleep; a web page gets no GPS
+  // while the screen is off, so breadcrumbs are then recorded whenever you look at the
+  // map, and joined with straight lines across the gaps.
+  // A silent wake-lock failure looks like a GPS failure mid-ride, so say so in the status.
   let lock: WakeLockSentinel | undefined;
+  let saver = false;
   const grab = async () => {
+    if (saver) return;
     try { await lock?.release(); lock = await navigator.wakeLock.request('screen'); lockFailed = false; }
     catch { lockFailed = true; status.textContent += ' · screen may sleep'; }
   };
   const onVis = () => { if (document.visibilityState === 'visible') grab(); };
-  grab();
   document.addEventListener('visibilitychange', onVis);
+
+  const power = document.createElement('button');
+  power.className = 'power';
+  root.appendChild(power);
+  const showPower = () => { power.textContent = saver ? '🔋 Battery saver' : '🔆 Screen stays on'; power.classList.toggle('on', saver); };
+  getSetting<boolean>('batterySaver').then(v => { saver = !!v; showPower(); if (!saver) grab(); });
+  power.addEventListener('click', async () => {
+    saver = !saver;
+    setSetting('batterySaver', saver);
+    showPower();
+    if (saver) { await lock?.release(); lock = undefined; lockFailed = false; }
+    else grab();
+    status.textContent = saver
+      ? 'Battery saver: screen can sleep. Breadcrumbs record whenever you look at the map.'
+      : 'Screen stays on. Breadcrumbs record continuously.';
+  });
 
   return () => {
     removeCompass();
     fix.remove();
+    power.remove();
     save();
     clearInterval(autosave);
     document.removeEventListener('visibilitychange', onHide);

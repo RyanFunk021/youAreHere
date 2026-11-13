@@ -29,13 +29,16 @@ export function fromENU(xy: [number, number], o: LatLng): LatLng {
 }
 
 // Great-circle distance in meters (haversine).
-export function distM(a: LatLng, b: LatLng): number {
+// Anything with lat at [0] and lng at [1]: a LatLng or a breadcrumb [lat, lng, time?].
+export type Pt = { readonly 0: number; readonly 1: number };
+
+export function distM(a: Pt, b: Pt): number {
   const dLat = (b[0] - a[0]) * D2R, dLng = (b[1] - a[1]) * D2R;
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-export const pathM = (p: LatLng[]) => p.reduce((s, x, i) => (i ? s + distM(p[i - 1], x) : 0), 0);
+export const pathM = (p: readonly Pt[]) => p.reduce((s, x, i) => (i ? s + distM(p[i - 1], x) : 0), 0);
 
 function centroid(pts: ControlPoint[]): LatLng {
   const n = pts.length;

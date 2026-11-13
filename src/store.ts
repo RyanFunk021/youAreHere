@@ -1,5 +1,5 @@
 import { get, set, del, update } from 'idb-keyval';
-import { pathM, type ControlPoint, type LatLng } from './georef';
+import { pathM, type ControlPoint } from './georef';
 
 // Everything lives in IndexedDB on the device.
 //   map:<id>    photo + control points (control points are the source of truth; the fit is derived)
@@ -8,7 +8,10 @@ import { pathM, type ControlPoint, type LatLng } from './georef';
 //   current     id of the last-opened map
 export interface SavedMap { id: string; name: string; blob: Blob; w: number; h: number; points: ControlPoint[] }
 export interface MapMeta { id: string; name: string; updated: number; points: number; trailM: number }
-export type Trail = LatLng[][];
+// Breadcrumb: [lat, lng, epoch ms]. Time added 2026-11-12 (older crumbs have none);
+// it lets hike photos be placed by when they were taken.
+export type Crumb = [number, number, number?];
+export type Trail = Crumb[][];
 
 const INDEX = 'maps', CURRENT = 'current', LEGACY = 'map';
 
@@ -66,6 +69,10 @@ async function migrate() {
   await setCurrentId(id);
   await del(LEGACY); // only after the copy is safely written
 }
+
+// Small device-local settings (e.g. battery saver).
+export const getSetting = <T>(k: string) => get<T>(`setting:${k}`);
+export const setSetting = (k: string, v: unknown) => set(`setting:${k}`, v);
 
 // Ask the browser not to evict our data under storage pressure / long disuse.
 export async function persist(): Promise<boolean> {
