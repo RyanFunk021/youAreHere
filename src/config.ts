@@ -17,3 +17,7 @@ export const STREETS = {
 
 // Breadcrumbs skip fixes worse than this (startup / indoor fixes are often 100 m+).
 export const MAX_TRAIL_ACCURACY_M = 50;
+
+// Breadcrumbs skip fixes closer than this to the previous point, so standing still
+// doesn't pile up GPS jitter (and inflate the distance).
+export const MIN_TRAIL_STEP_M = 3;

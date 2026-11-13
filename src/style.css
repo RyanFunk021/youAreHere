@@ -35,3 +35,16 @@ main { flex: 1; position: relative; min-height: 0; }
 
 .fab { position: absolute; right: 12px; bottom: 40px; z-index: 1000; width: 48px; height: 48px; border-radius: 50%; border: 0; background: #1c1c1e; color: #0a84ff; font-size: 26px; box-shadow: 0 1px 6px #000a; }
 .status { position: absolute; left: 12px; bottom: 46px; max-width: calc(100% - 84px); z-index: 1000; padding: 4px 10px; border-radius: 12px; background: #1c1c1ecc; font-size: 13px; }
+
+.maps { padding: 20px 16px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; height: 100%; }
+.maps .big { display: block; width: 100%; padding: 16px 0; font-size: 17px; font-weight: 600; }
+.maps ol { margin: 24px 0 0; padding-left: 22px; line-height: 1.6; color: #aaa; }
+.maps ul { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; }
+.maps li { background: #1c1c1e; border-radius: 12px; overflow: hidden; }
+.row-open { display: block; width: 100%; padding: 14px 14px 10px; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+.row-open .name { font-size: 17px; font-weight: 600; color: #fff; }
+.row-open .meta { margin-top: 3px; font-size: 13px; color: #999; }
+.row-actions { display: flex; gap: 6px; padding: 0 10px 10px; }
+.row-actions .btn { padding: 10px 0; font-size: 14px; min-height: 40px; }
+.btn.danger { color: #ff6b6b; }
+.storage { margin-top: 18px; font-size: 13px; color: #888; }

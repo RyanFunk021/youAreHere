@@ -1,11 +1,10 @@
 import * as L from 'leaflet';
-import { fitAffine, llToPx, type LatLng } from './georef';
+import { distM, fitAffine, llToPx, pathM, type LatLng } from './georef';
 import { photoMap, pxToSimple } from './photo';
-import { MAX_TRAIL_ACCURACY_M } from './config';
-import type { SavedMap } from './store';
+import { MAX_TRAIL_ACCURACY_M, MIN_TRAIL_STEP_M } from './config';
+import { loadTrail, saveTrail, type SavedMap, type Trail } from './store';
 
-// Session breadcrumbs, kept as lat/lng so a recalibration re-projects them.
-const trailLL: LatLng[] = [];
+const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`);
 
 export function showNavigate(root: HTMLElement, map: SavedMap) {
   root.innerHTML = `<div id="nav"></div><button id="recenter" class="fab">◎</button><div id="gps" class="status">Waiting for GPS…</div>`;
@@ -15,7 +14,29 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   const m = photoMap(root.querySelector<HTMLElement>('#nav')!, url, map.w, map.h);
   const toMap = (ll: LatLng) => pxToSimple(llToPx(fit, ll));
 
-  const trail = L.polyline(trailLL.map(toMap), { color: '#ff2d55', weight: 4, opacity: 0.85 }).addTo(m);
+  // Breadcrumbs are saved per map as lat/lng (so recalibrating re-projects them).
+  // Earlier rides load as their own segments; this session appends a new one.
+  const style = { color: '#ff2d55', weight: 4, opacity: 0.85 };
+  let past: Trail | null = null;      // null until loaded; never save before then
+  let pastM = 0;
+  const seg: LatLng[] = [];
+  let segM = 0;
+  let dirty = false;
+  const pastLine = L.polyline([], style).addTo(m);
+  const trail = L.polyline([], style).addTo(m);
+  loadTrail(map.id).then(t => {
+    past = t;
+    pastM = t.reduce((sum, s) => sum + pathM(s), 0);
+    pastLine.setLatLngs(t.map(s => s.map(toMap)));
+  });
+  const save = () => {
+    if (!past || !dirty) return;
+    dirty = false;
+    saveTrail(map.id, seg.length > 1 ? [...past, seg] : past);
+  };
+  const autosave = setInterval(save, 5000);
+  const onHide = () => { if (document.visibilityState === 'hidden') save(); };
+  document.addEventListener('visibilitychange', onHide);
   const acc = L.circle([0, 0], { radius: 1, color: '#007aff', weight: 1, fillOpacity: 0.12, interactive: false });
   const dot = L.circleMarker([0, 0], { radius: 8, color: '#fff', weight: 3, fillColor: '#007aff', fillOpacity: 1, interactive: false });
   let here: L.LatLng | null = null;
@@ -37,12 +58,17 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     const { latitude, longitude, accuracy } = pos.coords;
     fixes++;
     // Status first, so a failure in the map code below can't leave "Waiting…" on screen.
-    status.textContent = `±${Math.round(accuracy)} m · ${trailLL.length} pts${lockFailed ? ' · screen may sleep' : ''}`;
     const ll: LatLng = [latitude, longitude];
+    // Skip fixes that are too inaccurate, or too close to the last point (jitter while stopped).
+    if (accuracy <= MAX_TRAIL_ACCURACY_M) {
+      const last = seg[seg.length - 1];
+      const step = last ? distM(last, ll) : 0;
+      if (!last || step >= MIN_TRAIL_STEP_M) { seg.push(ll); segM += step; dirty = true; trail.addLatLng(toMap(ll)); }
+    }
+    status.textContent = `±${Math.round(accuracy)} m · this ride ${km(segM)} · total ${km(pastM + segM)}${lockFailed ? ' · screen may sleep' : ''}`;
     here = toMap(ll);
     acc.setLatLng(here).setRadius(accuracy / fit.metersPerPx).addTo(m);
     dot.setLatLng(here).addTo(m);
-    if (accuracy <= MAX_TRAIL_ACCURACY_M) { trailLL.push(ll); trail.addLatLng(here); }
     if (fixes === 1) m.setView(here, Math.max(m.getZoom(), -1));
     else if (!m.getBounds().pad(-0.2).contains(here)) m.panTo(here); // follow when near the edge
   }, err => {
@@ -68,6 +94,9 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   document.addEventListener('visibilitychange', onVis);
 
   return () => {
+    save();
+    clearInterval(autosave);
+    document.removeEventListener('visibilitychange', onHide);
     clearInterval(waiting);
     navigator.geolocation.clearWatch(watch);
     document.removeEventListener('visibilitychange', onVis);

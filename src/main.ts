@@ -1,39 +1,57 @@
 import 'leaflet/dist/leaflet.css';
 import './style.css';
-import { loadMap, saveMap, type SavedMap } from './store';
+import { getCurrentId, listMaps, loadMap, newId, persist, saveMap, setCurrentId, type SavedMap } from './store';
 import { fitAffine } from './georef';
 import { pdfToImage, preloadPdf } from './pdf';
 import { showCalibrate } from './calibrate';
 import { showNavigate } from './navigate';
+import { showMaps } from './maps';
 
 const view = document.getElementById('view')!;
 const file = document.getElementById('file') as HTMLInputElement;
+const bMaps = document.getElementById('b-maps') as HTMLButtonElement;
 const bCal = document.getElementById('b-cal') as HTMLButtonElement;
 const bNav = document.getElementById('b-nav') as HTMLButtonElement;
 
 let current: SavedMap | undefined;
 let teardown: (() => void) | undefined;
 
-function syncButtons(screen?: 'cal' | 'nav') {
+type Screen = 'maps' | 'cal' | 'nav';
+
+function syncButtons(screen?: Screen) {
   bCal.disabled = !current;
   bNav.disabled = !current || !fitAffine(current.points); // also false for collinear points
   if (screen) {
+    bMaps.classList.toggle('on', screen === 'maps');
     bCal.classList.toggle('on', screen === 'cal');
     bNav.classList.toggle('on', screen === 'nav');
   }
 }
 
-function go(screen: 'cal' | 'nav') {
+function go(screen: Screen) {
   teardown?.();
   syncButtons(screen);
-  teardown = screen === 'cal'
-    ? showCalibrate(view, current!, () => saveMap(current!), () => syncButtons())
-    : showNavigate(view, current!);
+  teardown = screen === 'maps'
+    ? showMaps(view, { open, pick: preload, changed: refreshCurrent })
+    : screen === 'cal'
+      ? showCalibrate(view, current!, () => saveMap(current!), () => syncButtons())
+      : showNavigate(view, current!);
+}
+
+async function open(id: string) {
+  current = await loadMap(id);
+  await setCurrentId(id);
+  go(fitAffine(current!.points) ? 'nav' : 'cal');
+}
+
+// After a rename/clear/delete on the Maps screen, re-read the open map (or drop it).
+async function refreshCurrent(id: string) {
+  if (current?.id === id) current = await loadMap(id);
+  syncButtons('maps');
 }
 
 file.addEventListener('change', async () => {
   const f = file.files![0];
-  if (current?.points.length && !confirm('Replace the calibrated map? Its points will be lost.')) { file.value = ''; return; }
   teardown?.(); teardown = undefined;
 
   // Show the current stage and a running clock, so "slow" and "stuck" look different,
@@ -53,10 +71,16 @@ file.addEventListener('change', async () => {
     const img = new Image();
     img.src = URL.createObjectURL(blob);
     await img.decode();
-    current = { blob, w: img.naturalWidth, h: img.naturalHeight, points: [] };
+    // New maps are added to the library; nothing is replaced. Camera photos are all
+    // called "image.jpg", so give those a dated name instead.
+    const base = f.name.replace(/\.[^.]+$/, '');
+    const name = !base || /^image$/i.test(base) ? `Map ${new Date().toLocaleDateString()}` : base;
+    current = { id: newId(), name, blob, w: img.naturalWidth, h: img.naturalHeight, points: [] };
     URL.revokeObjectURL(img.src);
     setStage('Saving');
     await saveMap(current);
+    await setCurrentId(current.id);
+    persist();
     setStage('Done');
   } catch (e) {
     clearInterval(tick);
@@ -74,22 +98,12 @@ file.addEventListener('change', async () => {
 // Start fetching pdf.js while the user is still in the file picker.
 const preload = () => { preloadPdf(); file.click(); };
 
-// A real button calling file.click() (inside the tap's user gesture) is more reliable
-// on iOS than a <label> wrapping a display:none input.
-document.getElementById('b-load')!.addEventListener('click', preload);
+bMaps.addEventListener('click', () => go('maps'));
 bCal.addEventListener('click', () => go('cal'));
 bNav.addEventListener('click', () => go('nav'));
 
-current = await loadMap();
-if (!current) {
-  syncButtons();
-  view.innerHTML = `<div class="empty">
-    <button id="pick" class="btn on big">📷 Choose a map photo or PDF</button>
-    <ol>
-      <li>Take a photo of a trail map, or pick a photo or PDF</li>
-      <li>Match 4–6 spots on it to the satellite view</li>
-      <li>Navigate: your GPS dot appears on the photo</li>
-    </ol>
-  </div>`;
-  view.querySelector('#pick')!.addEventListener('click', preload);
-} else go(fitAffine(current.points) ? 'nav' : 'cal');
+// Reopen the last map; otherwise show the library (which is also the first-run screen).
+const maps = await listMaps(); // also migrates the v1 single-map slot
+const lastId = await getCurrentId();
+if (lastId && maps.some(m => m.id === lastId)) await open(lastId);
+else go('maps');
