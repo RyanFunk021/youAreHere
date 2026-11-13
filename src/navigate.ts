@@ -48,7 +48,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   }, err => {
     // 1 = denied, 2 = unavailable, 3 = timeout (the watch keeps trying after a timeout).
     lastErr = err.code === 1
-      ? 'Location blocked. Settings → Privacy & Security → Location Services → Safari Websites → While Using; then Safari aA → Website Settings → Location → Allow, and reload.'
+      ? 'Location blocked. iPhone Settings → Privacy & Security → Location Services: allow your browser (Safari Websites, or Apps → Chrome) While Using, then allow this site in the browser and reload.'
       : err.code === 2 ? 'Location unavailable: is Location Services on?'
       : 'no fix after 20 s, still trying (try outdoors)';
     if (!fixes || err.code !== 3) status.textContent = `GPS: ${lastErr}`;
