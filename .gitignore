@@ -11,3 +11,6 @@ private/
 
 # Planning docs (premise/spec) stay local unless deliberately published
 .claude/
+
+# ...except the instruction screenshots (synthetic example map only)
+!public/help/*.jpg

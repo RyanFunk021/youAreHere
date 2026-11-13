@@ -29,6 +29,7 @@ export function showMaps(root: HTMLElement, cb: { open(id: string): void; pick()
         <li>Match 4–6 spots on it to the satellite view</li>
         <li>Navigate: your GPS dot and trail appear on the map</li>
       </ol>`}
+      <p class="howto"><a href="#help">How to use this app →</a></p>
       <p class="storage" id="storage"></p>
     </div>`;
     root.querySelector('#pick')!.addEventListener('click', cb.pick);

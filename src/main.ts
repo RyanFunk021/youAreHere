@@ -6,17 +6,19 @@ import { pdfToImage, preloadPdf } from './pdf';
 import { showCalibrate } from './calibrate';
 import { showNavigate } from './navigate';
 import { showMaps } from './maps';
+import { showHelp } from './help';
 
 const view = document.getElementById('view')!;
 const file = document.getElementById('file') as HTMLInputElement;
 const bMaps = document.getElementById('b-maps') as HTMLButtonElement;
 const bCal = document.getElementById('b-cal') as HTMLButtonElement;
 const bNav = document.getElementById('b-nav') as HTMLButtonElement;
+const bHelp = document.getElementById('b-help') as HTMLButtonElement;
 
 let current: SavedMap | undefined;
 let teardown: (() => void) | undefined;
 
-type Screen = 'maps' | 'cal' | 'nav';
+type Screen = 'maps' | 'cal' | 'nav' | 'help';
 
 function syncButtons(screen?: Screen) {
   bCal.disabled = !current;
@@ -25,13 +27,17 @@ function syncButtons(screen?: Screen) {
     bMaps.classList.toggle('on', screen === 'maps');
     bCal.classList.toggle('on', screen === 'cal');
     bNav.classList.toggle('on', screen === 'nav');
+    bHelp.classList.toggle('on', screen === 'help');
   }
 }
 
 function go(screen: Screen) {
   teardown?.();
   syncButtons(screen);
-  teardown = screen === 'maps'
+  // #help is a shareable link to the instructions; drop it when leaving that screen.
+  if (screen === 'help') { if (location.hash !== '#help') history.replaceState(null, '', '#help'); }
+  else if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  teardown = screen === 'help' ? showHelp(view) : screen === 'maps'
     ? showMaps(view, { open, pick: preload, changed: refreshCurrent })
     : screen === 'cal'
       ? showCalibrate(view, current!, () => saveMap(current!), () => syncButtons())
@@ -101,9 +107,13 @@ const preload = () => { preloadPdf(); file.click(); };
 bMaps.addEventListener('click', () => go('maps'));
 bCal.addEventListener('click', () => go('cal'));
 bNav.addEventListener('click', () => go('nav'));
+bHelp.addEventListener('click', () => go('help'));
+window.addEventListener('hashchange', () => { if (location.hash === '#help') go('help'); });
 
 // Reopen the last map; otherwise show the library (which is also the first-run screen).
 const maps = await listMaps(); // also migrates the v1 single-map slot
 const lastId = await getCurrentId();
-if (lastId && maps.some(m => m.id === lastId)) await open(lastId);
+if (lastId && maps.some(m => m.id === lastId)) current = await loadMap(lastId);
+if (location.hash === '#help') go('help');
+else if (current) await open(current.id);
 else go('maps');
