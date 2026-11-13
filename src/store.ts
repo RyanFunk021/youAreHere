@@ -1,9 +1,11 @@
 import { get, set, del, update } from 'idb-keyval';
 import { pathM, type ControlPoint } from './georef';
+import type { HikePhoto } from './photos';
 
 // Everything lives in IndexedDB on the device.
 //   map:<id>    photo + control points (control points are the source of truth; the fit is derived)
 //   trail:<id>  breadcrumbs as segments, one per Navigate session, so separate rides don't join up
+//   photos:<id> hike photos placed on the map
 //   maps        small index for the Maps screen, so listing doesn't load every photo
 //   current     id of the last-opened map
 export interface SavedMap { id: string; name: string; blob: Blob; w: number; h: number; points: ControlPoint[] }
@@ -35,6 +37,7 @@ export async function saveMap(m: SavedMap) {
 export async function deleteMap(id: string) {
   await del(`map:${id}`);
   await del(`trail:${id}`);
+  await del(`photos:${id}`);
   await update<MapMeta[]>(INDEX, idx => (idx ?? []).filter(x => x.id !== id));
   if ((await getCurrentId()) === id) await del(CURRENT);
 }
@@ -69,6 +72,10 @@ async function migrate() {
   await setCurrentId(id);
   await del(LEGACY); // only after the copy is safely written
 }
+
+// Hike photos for a map (downscaled JPEGs + where they were placed).
+export const loadPhotos = async (id: string) => (await get<HikePhoto[]>(`photos:${id}`)) ?? [];
+export const savePhotos = (id: string, p: HikePhoto[]) => set(`photos:${id}`, p);
 
 // Small device-local settings (e.g. battery saver).
 export const getSetting = <T>(k: string) => get<T>(`setting:${k}`);

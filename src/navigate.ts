@@ -3,12 +3,15 @@ import { distM, fitAffine, llToPx, northOnPhotoDeg, pathM, type LatLng, type Pt 
 import { compassWidget } from './compass';
 import { photoMap, pxToSimple } from './photo';
 import { MAX_TRAIL_ACCURACY_M, MIN_TRAIL_STEP_M } from './config';
-import { getSetting, loadTrail, saveTrail, setSetting, type Crumb, type SavedMap, type Trail } from './store';
+import { getSetting, loadPhotos, loadTrail, savePhotos, saveTrail, setSetting, type Crumb, type SavedMap, type Trail } from './store';
+import { describe, importPhotos, type HikePhoto } from './photos';
 
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`);
 
 export function showNavigate(root: HTMLElement, map: SavedMap) {
-  root.innerHTML = `<div id="nav"></div><button id="recenter" class="fab">◎</button><div id="gps" class="status">Waiting for GPS…</div>`;
+  root.innerHTML = `<div id="nav"></div><button id="recenter" class="fab">◎</button>
+    <button id="addphotos" class="fab camfab" aria-label="Add photos">📷</button><input id="photofile" type="file" accept="image/*" multiple hidden>
+    <div id="gps" class="status">Waiting for GPS…</div>`;
   const status = root.querySelector<HTMLElement>('#gps')!;
   const fit = fitAffine(map.points)!;
   const url = URL.createObjectURL(map.blob);
@@ -41,6 +44,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   const acc = L.circle([0, 0], { radius: 1, color: '#007aff', weight: 1, fillOpacity: 0.12, interactive: false });
   const dot = L.circleMarker([0, 0], { radius: 8, color: '#fff', weight: 3, fillColor: '#007aff', fillOpacity: 1, interactive: false });
   let here: L.LatLng | null = null;
+  let hereLL: LatLng | null = null;
   let lockFailed = false;
   let fixes = 0;
 
@@ -63,7 +67,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   fix.innerHTML = `<div class="msg">Location is blocked for this page.</div>
     <button class="btn on" data-loc="ask">📍 Ask for location again</button>
     <div class="more" hidden>
-      <div class="steps">Still blocked. iPhone Settings → Apps → Chrome → Location (Safari: Privacy &amp; Security → Location Services → Safari Websites) → <b>While Using the App</b> or <b>Ask Next Time</b>. Then reload and tap Allow.</div>
+      <div class="steps">Still blocked. <b>Close the browser completely</b> (swipe it away in the app switcher), reopen this page and tap <b>Allow</b>. If it never asks: iPhone Settings → Apps → Chrome → Location (Safari: Privacy &amp; Security → Location Services → Safari Websites) → <b>While Using the App</b> or <b>Ask Next Time</b>.</div>
       <button class="btn" data-loc="reload">Reload page</button>
     </div>`;
   root.appendChild(fix);
@@ -92,6 +96,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     }
     status.textContent = `±${Math.round(accuracy)} m · this ride ${km(segM)} · total ${km(pastM + segM)}${lockFailed ? ' · screen may sleep' : ''}`;
     here = toMap(ll);
+    hereLL = ll;
     acc.setLatLng(here).setRadius(accuracy / fit.metersPerPx).addTo(m);
     dot.setLatLng(here).addTo(m);
     if (fixes === 1) m.setView(here, Math.max(m.getZoom(), -1));
@@ -112,6 +117,56 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
 
   root.querySelector('#recenter')!.addEventListener('click', () => { if (here) m.panTo(here); });
   const removeCompass = compassWidget(root, northOnPhotoDeg(fit));
+
+  // Hike photos: camera dots on the map; tap one to view it.
+  let photos: HikePhoto[] = [];
+  const photoLayer = L.layerGroup().addTo(m);
+  const camIcon = L.divIcon({ className: 'cam', html: '📷', iconSize: [30, 30], iconAnchor: [15, 15] });
+  const drawPhotos = () => {
+    photoLayer.clearLayers();
+    for (const p of photos) L.marker(toMap([p.lat, p.lng]), { icon: camIcon }).on('click', () => viewPhoto(p)).addTo(photoLayer);
+  };
+  loadPhotos(map.id).then(p => { photos = p; drawPhotos(); });
+
+  const viewPhoto = (p: HikePhoto) => {
+    const src = URL.createObjectURL(p.full);
+    const box = document.createElement('div');
+    box.className = 'lightbox';
+    const how = p.how === 'gps' ? 'placed by photo location' : p.how === 'time' ? 'placed by time on your trail' : 'placed at your spot when taken';
+    box.innerHTML = `<img alt=""><div class="cap"></div><div class="row"><button class="btn danger" data-a="del">Delete photo</button><button class="btn on" data-a="close">Close</button></div>`;
+    box.querySelector('img')!.src = src;
+    box.querySelector('.cap')!.textContent = `${p.t ? new Date(p.t).toLocaleString() : ''} · ${how}`;
+    box.addEventListener('click', async e => {
+      const a = (e.target as HTMLElement).dataset.a;
+      if (!a) return;
+      if (a === 'del') {
+        if (!confirm('Delete this photo from the map?')) return;
+        photos = photos.filter(x => x.id !== p.id);
+        await savePhotos(map.id, photos);
+        drawPhotos();
+      }
+      URL.revokeObjectURL(src);
+      box.remove();
+    });
+    root.appendChild(box);
+  };
+
+  const photoInput = root.querySelector<HTMLInputElement>('#photofile')!;
+  root.querySelector('#addphotos')!.addEventListener('click', () => photoInput.click());
+  photoInput.addEventListener('change', async () => {
+    const files = [...(photoInput.files ?? [])];
+    photoInput.value = '';
+    if (!files.length) return;
+    try {
+      const r = await importPhotos(files, [...(past ?? []), seg], hereLL, s => { status.textContent = s; });
+      photos = [...photos, ...r.added];
+      await savePhotos(map.id, photos);
+      drawPhotos();
+      status.textContent = describe(r);
+    } catch (e) {
+      status.textContent = `Couldn't add photos: ${e}`;
+    }
+  });
 
   // Screen: kept on by default. Battery saver lets it sleep; a web page gets no GPS
   // while the screen is off, so breadcrumbs are then recorded whenever you look at the
@@ -147,6 +202,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     removeCompass();
     fix.remove();
     power.remove();
+    root.querySelector('.lightbox')?.remove();
     save();
     clearInterval(autosave);
     document.removeEventListener('visibilitychange', onHide);

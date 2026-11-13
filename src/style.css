@@ -69,3 +69,11 @@ main { flex: 1; position: relative; min-height: 0; }
 
 .power { position: absolute; top: 12px; left: 12px; z-index: 1000; padding: 8px 12px; border: 0; border-radius: 18px; background: #1c1c1ee6; color: #eee; font: 14px system-ui; box-shadow: 0 1px 6px #000a; }
 .power.on { background: #30d158; color: #000; }
+
+.camfab { bottom: 100px; font-size: 22px; color: #fff; }
+.cam { font-size: 20px; line-height: 30px; text-align: center; background: #fff; border-radius: 50%; box-shadow: 0 0 0 2px #ff9f0a, 0 1px 4px #000a; }
+.lightbox { position: fixed; inset: 0; z-index: 2000; background: #000e; display: flex; flex-direction: column; padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); gap: 10px; }
+.lightbox img { flex: 1; min-height: 0; object-fit: contain; width: 100%; }
+.lightbox .cap { color: #ccc; font-size: 14px; text-align: center; }
+.lightbox .row { display: flex; gap: 8px; }
+.lightbox .btn { padding: 14px 0; }
