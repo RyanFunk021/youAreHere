@@ -24,6 +24,13 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
     navigator.geolocation.getCurrentPosition(p => sat.setView([p.coords.latitude, p.coords.longitude], 16), () => {}, { enableHighAccuracy: true });
   }
 
+  // The bar between the maps changes height (hint wraps, Cancel/Add replaces the chips),
+  // which resizes both panels. Leaflet must be told, or its centre goes stale: the
+  // jump-to-prediction lands off-centre and tiles leave grey gaps. pan keeps the centre.
+  const ro = new ResizeObserver(() => { ph.invalidateSize({ pan: true }); sat.invalidateSize({ pan: true }); });
+  ro.observe(root.querySelector('#ph')!);
+  ro.observe(root.querySelector('#sat')!);
+
   const phLayer = L.layerGroup().addTo(ph);
   const satLayer = L.layerGroup().addTo(sat);
   // A tap only places a pending point; re-tap to adjust. "Add pair" commits.
@@ -94,5 +101,5 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
   }
   draw();
 
-  return () => { ph.remove(); sat.remove(); URL.revokeObjectURL(url); };
+  return () => { ro.disconnect(); ph.remove(); sat.remove(); URL.revokeObjectURL(url); };
 }
