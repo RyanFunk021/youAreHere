@@ -55,7 +55,31 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     status.textContent = `Waiting for GPS… ${Math.round((Date.now() - t0) / 1000)} s${perm ? ` · permission: ${perm}` : ''}${lastErr ? ` · ${lastErr}` : ''}`;
   }, 500);
 
-  const watch = navigator.geolocation.watchPosition(pos => {
+  // Location-blocked panel: a page can't force the browser's prompt back, but retrying
+  // from a tap often re-prompts on iOS; if it fails again instantly, offer Reload + the setting.
+  const fix = document.createElement('div');
+  fix.className = 'locfix';
+  fix.hidden = true;
+  fix.innerHTML = `<div class="msg">Location is blocked for this page.</div>
+    <button class="btn on" data-loc="ask">📍 Ask for location again</button>
+    <div class="more" hidden>
+      <div class="steps">Still blocked. iPhone Settings → Apps → Chrome → Location (Safari: Privacy &amp; Security → Location Services → Safari Websites) → <b>While Using the App</b> or <b>Ask Next Time</b>. Then reload and tap Allow.</div>
+      <button class="btn" data-loc="reload">Reload page</button>
+    </div>`;
+  root.appendChild(fix);
+  let asks = 0;
+  fix.addEventListener('click', e => {
+    const a = (e.target as HTMLElement).dataset.loc;
+    if (a === 'reload') location.reload();
+    if (a !== 'ask') return;
+    asks++;
+    lastErr = '';
+    navigator.geolocation.clearWatch(watch);
+    watch = startWatch(); // inside the tap, so the browser may show its prompt again
+  });
+
+  const startWatch = () => navigator.geolocation.watchPosition(pos => {
+    fix.hidden = true;
     const { latitude, longitude, accuracy } = pos.coords;
     fixes++;
     // Status first, so a failure in the map code below can't leave "Waiting…" on screen.
@@ -75,11 +99,16 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   }, err => {
     // 1 = denied, 2 = unavailable, 3 = timeout (the watch keeps trying after a timeout).
     lastErr = err.code === 1
-      ? 'Location blocked. iPhone Settings → Privacy & Security → Location Services: allow your browser (Safari Websites, or Apps → Chrome) While Using, then allow this site in the browser and reload.'
+      ? 'location blocked'
       : err.code === 2 ? 'Location unavailable: is Location Services on?'
       : 'no fix after 20 s, still trying (try outdoors)';
     if (!fixes || err.code !== 3) status.textContent = `GPS: ${lastErr}`;
+    if (err.code === 1) {
+      fix.hidden = false;
+      (fix.querySelector('.more') as HTMLElement).hidden = asks === 0;
+    }
   }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+  let watch = startWatch();
 
   root.querySelector('#recenter')!.addEventListener('click', () => { if (here) m.panTo(here); });
   const removeCompass = compassWidget(root, northOnPhotoDeg(fit));
@@ -97,6 +126,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
 
   return () => {
     removeCompass();
+    fix.remove();
     save();
     clearInterval(autosave);
     document.removeEventListener('visibilitychange', onHide);
