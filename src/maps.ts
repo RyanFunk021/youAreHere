@@ -2,6 +2,8 @@ import { deleteMap, listMaps, loadMap, loadWaypoints, persist, saveMap, saveTrai
 import { packMap, sendFile } from './share';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+// Launched from the home screen (iOS gives it storage separate from the browser).
+const installed = matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
 
 // The map library: every map saved on this device, with its calibration and trail.
@@ -31,6 +33,9 @@ export function showMaps(root: HTMLElement, cb: { open(id: string): void; pick()
         <li>Match 4–6 spots on it to the satellite view</li>
         <li>Navigate: your GPS dot and trail appear on the map</li>
       </ol>`}
+      ${!maps.length && installed ? `<p class="installed-note">You opened You Are Here from your home screen. On iPhone it keeps its own maps,
+        separate from your browser. To bring a map over, open the app in your browser, tap <b>Share</b> on the map
+        and save the file, then <b>Add a map</b> here and choose that file.</p>` : ''}
       <p class="howto"><a href="#help">How to use this app →</a></p>
       <p class="storage" id="storage"></p>
     </div>`;

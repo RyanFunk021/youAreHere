@@ -14,3 +14,4 @@ private/
 
 # ...except the instruction screenshots (synthetic example map only)
 !public/help/*.jpg
+!public/icons/*.png

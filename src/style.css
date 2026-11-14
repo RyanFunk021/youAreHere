@@ -105,3 +105,4 @@ main { flex: 1; position: relative; min-height: 0; }
 .sheet input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #444; background: #111; color: #eee; font: 16px system-ui; }
 .sheet .err { color: #ff6b6b; font-size: 14px; }
 .sheet .err[hidden] { display: none; }
+.installed-note { margin-top: 18px; padding: 12px 14px; border-radius: 12px; background: #1c2a3a; color: #cfe3ff; font-size: 14px; line-height: 1.45; }

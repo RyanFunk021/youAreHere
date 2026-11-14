@@ -123,6 +123,18 @@ navigate, with no calibrating needed.
 Your maps are saved **in this browser on this phone**. Use the same browser each time,
 not a private tab. If you don't open the app for a few weeks, the browser may clear it.
 
+## 6. Put it on your home screen
+
+In **Safari**, tap **Share** (the square with the arrow), then **Add to Home Screen**. In
+**Chrome**, tap the **Share** icon in the address bar, then **Add to Home Screen**. It
+opens full-screen like an app, and the phone won't clear its maps after a few weeks of
+not using it.
+
+On iPhone the home-screen app **keeps its own maps**, separate from your browser. To
+move a map over, open the app in your browser, tap **Share** on the map and save the
+file. Then, in the home-screen app, tap **Add a map** and choose that file. It also asks
+for location permission again the first time.
+
 ---
 
 ## Troubleshooting
