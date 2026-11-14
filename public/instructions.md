@@ -12,6 +12,11 @@ map tiles, and only while you're lining a map up.
 
 ---
 
+**Want to see it first?** On **Maps**, tap **Try the demo map**: a 1905 U.S.
+Geological Survey map of Peoria, Illinois, already lined up with today's satellite view.
+
+![The demo map, calibrated](help/demo-calibrate.jpg)
+
 ## 1. Add a map
 
 Tap **Add a map (photo or PDF)**. You can take a photo, pick one from your library,

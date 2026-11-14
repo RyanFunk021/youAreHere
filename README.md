@@ -1,33 +1,64 @@
 # You Are Here
 
-Put a live GPS dot on a photo of any trail map.
+**Put a live GPS dot on a photo of any trail map.**
 
-Take a picture of a trailhead board, a park brochure or a ski map. Match a few spots
-on it to the same spots on satellite imagery. From then on the app shows where you
-are *on that photo*, along with the trail you've walked.
+Take a picture of a trailhead board, download a club's PDF, or open a century-old
+survey map. Match a couple of spots on it to satellite imagery, and from then on the
+app shows where you are *on that map*, as you walk.
 
-**Status:** prototype. One map at a time, works with the screen on, needs signal to
-load the page.
+<p align="center">
+  <img src="public/help/demo-calibrate.jpg" width="300" alt="A 1905 USGS map of Peoria lined up with today's satellite imagery">
+  &nbsp;
+  <img src="public/help/demo-navigate.jpg" width="300" alt="A live location dot on 1905 downtown Peoria">
+</p>
+<p align="center"><sub>The built-in demo: the USGS Peoria, Illinois quadrangle of 1905, calibrated to
+today's satellite view (left), with a GPS position in downtown Peoria shown on the 1905
+street grid (right).</sub></p>
 
-## Use it
+**Try it on your phone: <https://ryanfunk021.github.io/youAreHere/>**, then tap
+**Try the demo map**. There's no account and nothing to install.
 
-**Full instructions with screenshots: <https://ryanfunk021.github.io/youAreHere/#help>**
-(source: [`public/instructions.md`](public/instructions.md)).
+## What it does
 
-1. Open <https://ryanfunk021.github.io/youAreHere/> on your phone.
-2. Tap **Choose a map photo or PDF** (later: **New map**). Take a photo, or pick a photo or PDF. For a multi-page PDF it asks which page is the map.
-3. **Calibrate.** Tap a spot on the photo (top), then the same spot on the satellite
-   (bottom), then **Add pair**. Re-tap either side to adjust before adding. Two
-   well-separated spots are enough to start; 4–6 spread around the area are better.
-   Trail junctions, road crossings,
-   parking lots and creek bends work well. Under tree canopy, switch the satellite
-   to **Map** or **Map overlay** to see the trails.
-   - **Fit ±N m** is how well the points agree.
-   - With 5+ points, a mis-tapped one turns red. Delete it with ✕.
-4. **Navigate.** Allow location. ◎ re-centres on you.
+- **Any map:** a photo, a screenshot, or a PDF (it asks which page).
+- **Calibrate with 2+ taps:** tap a spot on the map, then the same spot on
+  satellite or street-map imagery. Two pairs are enough. With more, it reports the
+  fit error and flags a mis-tapped point.
+- **Navigate:** your live position, a breadcrumb trail saved per map, free
+  pan/zoom, an orienteering compass for lining the map up with the land, and a
+  battery saver.
+- **Waypoints:** paste coordinates or a Google/Apple Maps link to get a highlighted
+  ⭐ with distance and direction. Share one as a link.
+- **Hike photos:** shown as camera dots, placed by the photo's location or by
+  matching its time to your trail.
+- **Share a calibrated map** with a friend by Messages, Messenger or AirDrop. It
+  arrives ready to use.
+- **Private by design:** everything stays on the phone. There's no backend; the
+  only network use is map tiles while calibrating.
 
-Spread your points around the edges of the area you'll travel. A fit is reliable
-between points and drifts outside them.
+It works with the screen on (a web page can't track GPS in a locked pocket). It can
+be added to the home screen.
+
+**Field-tested** on real trails by the friend who asked for it. Full instructions,
+with screenshots, are in the app (**?**) and at
+<https://ryanfunk021.github.io/youAreHere/#help> (source:
+[`public/instructions.md`](public/instructions.md)).
+
+## How it works
+
+- **Calibration** maps photo pixels to a local plane around the map's centre (a
+  sinusoidal projection, so meridians converge as on a real map). Two pairs give an
+  exact rotation + scale + shift. Three or more give a least-squares affine fit. GPS
+  positions go through the inverse.
+- **Error you can trust:** the residual of a single point can't identify a mis-tap
+  (in simulation it names the wrong point about half the time). The app flags the
+  point whose *removal* most improves the fit, which is right about 94% of the time
+  with 5 pairs.
+- **PDFs** are rasterized on the phone with pdf.js. Maps, trails, photos and
+  waypoints live in IndexedDB.
+- It's a **static site** (Vite + TypeScript + Leaflet) on GitHub Pages.
+  [`src/georef.ts`](src/georef.ts) holds all the math, with no DOM or map-library
+  dependency.
 
 ## Develop
 
@@ -40,15 +71,16 @@ Phones only allow GPS on HTTPS pages, so to test GPS on a phone, push to `main`.
 GitHub Actions then deploys to Pages. Calibration works over plain HTTP on the LAN
 (`npm run dev -- --host`).
 
-`src/georef.ts` holds all the math (affine fit, inverse, residuals, mis-tap
-detection). It has no DOM or map-library dependencies.
-
 ## Maps and copyright
 
-Most trail, club and resort maps are copyrighted. Load your own photos into the app,
-but don't commit them to this repo (`private/` and image files are git-ignored).
-US National Park Service maps are public domain.
+Most trail, club and resort maps are copyrighted. Load your own copies into the app,
+but don't commit them to this repo (images and PDFs are git-ignored, apart from the
+demo and help screenshots). US government maps from USGS and NPS are public domain.
 
-## License
+## Credits and license
 
-GPL-3.0. Imagery © Esri and contributors; map data © OpenStreetMap contributors.
+- **Demo map:** U.S. Geological Survey, *Peoria, Illinois* 1:62,500 quadrangle,
+  edition of 1905 (reprinted 1940), from the USGS Historical Topographic Map
+  Collection. Public domain.
+- Imagery © Esri and contributors. Street map © OpenStreetMap contributors.
+- Code: GPL-3.0.

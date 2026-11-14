@@ -46,10 +46,10 @@ function go(screen: Screen) {
       : showNavigate(view, current!);
 }
 
-async function open(id: string) {
+async function open(id: string, screen?: 'cal' | 'nav') {
   current = await loadMap(id);
   await setCurrentId(id);
-  go(fitPoints(current!.points) ? 'nav' : 'cal');
+  go(screen ?? (fitPoints(current!.points) ? 'nav' : 'cal'));
 }
 
 // After a rename/clear/delete on the Maps screen, re-read the open map (or drop it).

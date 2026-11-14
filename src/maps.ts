@@ -1,5 +1,6 @@
 import { deleteMap, listMaps, loadMap, loadWaypoints, persist, saveMap, saveTrail, type MapMeta } from './store';
 import { packMap, sendFile } from './share';
+import { DEMO_ID, loadDemo } from './demo';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 // Launched from the home screen (iOS gives it storage separate from the browser).
@@ -7,7 +8,7 @@ const installed = matchMedia('(display-mode: standalone)').matches || (navigator
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
 
 // The map library: every map saved on this device, with its calibration and trail.
-export function showMaps(root: HTMLElement, cb: { open(id: string): void; pick(): void; changed(id: string): void }) {
+export function showMaps(root: HTMLElement, cb: { open(id: string, screen?: 'cal' | 'nav'): void; pick(): void; changed(id: string): void }) {
   let alive = true;
 
   async function render() {
@@ -36,10 +37,17 @@ export function showMaps(root: HTMLElement, cb: { open(id: string): void; pick()
       ${!maps.length && installed ? `<p class="installed-note">You opened You Are Here from your home screen. On iPhone it keeps its own maps,
         separate from your browser. To bring a map over, open the app in your browser, tap <b>Share</b> on the map
         and save the file, then <b>Add a map</b> here and choose that file.</p>` : ''}
+      ${maps.some(m => m.id === DEMO_ID) ? '' : `<button id="demo" class="btn demo">🗺 Try the demo map: Peoria, Illinois in 1905</button>`}
       <p class="howto"><a href="#help">How to use this app →</a></p>
       <p class="storage" id="storage"></p>
     </div>`;
     root.querySelector('#pick')!.addEventListener('click', cb.pick);
+    root.querySelector('#demo')?.addEventListener('click', async e => {
+      const b = e.currentTarget as HTMLButtonElement;
+      b.disabled = true; b.textContent = 'Loading the demo map…';
+      try { await loadDemo(); cb.open(DEMO_ID, 'cal'); }
+      catch (err) { b.disabled = false; b.textContent = `Couldn't load the demo (${err}). Tap to retry.`; }
+    });
     if (maps.length) {
       const kept = await persist();
       const el = root.querySelector('#storage');
