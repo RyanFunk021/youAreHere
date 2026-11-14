@@ -45,7 +45,7 @@ main { flex: 1; position: relative; min-height: 0; }
 .row-open .name { font-size: 17px; font-weight: 600; color: #fff; }
 .row-open .meta { margin-top: 3px; font-size: 13px; color: #999; }
 .row-actions { display: flex; gap: 6px; padding: 0 10px 10px; }
-.row-actions .btn { padding: 10px 0; font-size: 14px; min-height: 40px; }
+.row-actions .btn { padding: 10px 0; font-size: 13px; min-height: 40px; }
 .btn.danger { color: #ff6b6b; }
 .storage { margin-top: 18px; font-size: 13px; color: #888; }
 

@@ -1,4 +1,5 @@
-import { deleteMap, listMaps, loadMap, persist, saveMap, saveTrail, type MapMeta } from './store';
+import { deleteMap, listMaps, loadMap, loadWaypoints, persist, saveMap, saveTrail, type MapMeta } from './store';
+import { packMap, sendFile } from './share';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
@@ -17,6 +18,7 @@ export function showMaps(root: HTMLElement, cb: { open(id: string): void; pick()
           <div class="meta">${m.points >= 2 ? `${m.points} points` : 'not calibrated'} · trail ${km(m.trailM)} · ${new Date(m.updated).toLocaleDateString()}</div>
         </button>
         <div class="row-actions">
+          <button class="btn" data-act="share" ${m.points >= 2 ? '' : 'disabled'}>Share</button>
           <button class="btn" data-act="rename">Rename</button>
           <button class="btn" data-act="clear" ${m.trailM ? '' : 'disabled'}>Clear trail</button>
           <button class="btn danger" data-act="delete">Delete</button>
@@ -57,6 +59,30 @@ export function showMaps(root: HTMLElement, cb: { open(id: string): void; pick()
     } else if (act === 'clear') {
       if (!confirm(`Clear the saved trail for "${map.name}"?`)) return;
       await saveTrail(id, []);
+    } else if (act === 'share') {
+      // Two taps on purpose: iOS only opens the share sheet straight after a tap, and
+      // packing a large map can take longer than that allowance.
+      root.querySelector('.sheet')?.remove();
+      const el = document.createElement('div');
+      el.className = 'sheet';
+      el.innerHTML = `<div class="msg">Preparing “${esc(map.name)}”…</div>`;
+      root.appendChild(el);
+      const wps = await loadWaypoints(id);
+      const f = await packMap(map, wps);
+      el.innerHTML = `<div class="msg">Send “${esc(map.name)}”</div>
+        <div class="sub">${(f.size / 1e6).toFixed(1)} MB · map, calibration${wps.length ? ` and ${wps.length} waypoint${wps.length > 1 ? 's' : ''}` : ''}. Your trail and photos stay on this phone.</div>
+        <div class="sub">They open it with <b>Add a map</b> → choose the file (on iPhone, Save to Files first).</div>
+        <div class="row"><button class="btn" data-s="cancel">Cancel</button><button class="btn on" data-s="send">Send…</button></div>`;
+      el.addEventListener('click', async ev => {
+        const a = (ev.target as HTMLElement).dataset.s;
+        if (a === 'cancel') el.remove();
+        if (a !== 'send') return;
+        const r = await sendFile(f);
+        if (r === 'cancelled') return;
+        el.innerHTML = `<div class="msg">${r === 'shared' ? 'Sent.' : 'Saved as a file. Send it from your Downloads or Files.'}</div>`;
+        setTimeout(() => el.remove(), 2500);
+      });
+      return;
     } else if (act === 'delete') {
       if (!confirm(`Delete "${map.name}", its calibration and its trail?`)) return;
       await deleteMap(id);
