@@ -75,6 +75,17 @@ they line up and it says **Map aligned**. Now left on the map is left in front o
 whenever you look at the map, joined up in between. A web page can't use GPS while the
 screen is off, so this is the trade-off.
 
+### Waypoints
+
+Tap **📍** and paste a location: coordinates like `40.8312, -89.8015`, degrees and
+minutes, or a full Google or Apple Maps link. Give it a name if you like. It appears as
+a pulsing **⭐**, and the status line shows how far it is and which way to go in a
+straight line (for example *⭐ Spring 870 m NE*). Tap a star to share it or delete it.
+
+**Share link** makes a link that opens the app with that waypoint added. Send it to
+someone who has the same map calibrated. Short links such as `maps.app.goo.gl/…` can't
+be read; copy the coordinates instead.
+
 ## 4. Hike photos
 
 Tap **📷** to add photos, during the hike or after it. Each one appears as a camera dot

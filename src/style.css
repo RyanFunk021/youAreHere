@@ -90,3 +90,18 @@ main { flex: 1; position: relative; min-height: 0; }
 .help strong { color: #fff; }
 .help .loading { color: #888; }
 .fitfab { bottom: 100px; font-size: 24px; }
+
+.wpfab { bottom: 220px; font-size: 22px; }
+.wp { display: flex; align-items: center; }
+.wp .star { font-size: 26px; line-height: 34px; filter: drop-shadow(0 0 3px #000); }
+.wp.target .star { animation: wp-pulse 1.4s ease-in-out infinite; }
+@keyframes wp-pulse { 50% { transform: scale(1.35); filter: drop-shadow(0 0 8px #ffd60a); } }
+.wp .wpname { margin-left: 2px; padding: 1px 6px; border-radius: 8px; background: #1c1c1ee6; color: #ffd60a; font: 600 13px system-ui; white-space: nowrap; }
+.sheet { position: absolute; left: 12px; right: 12px; top: 128px; z-index: 1002; padding: 14px; border-radius: 14px; background: #1c1c1ef5; box-shadow: 0 2px 12px #000c; display: grid; gap: 10px; }
+.sheet .msg { font-weight: 600; font-size: 17px; }
+.sheet .sub { color: #aaa; font-size: 14px; }
+.sheet .row { display: flex; gap: 8px; }
+.sheet .btn { padding: 12px 0; }
+.sheet input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #444; background: #111; color: #eee; font: 16px system-ui; }
+.sheet .err { color: #ff6b6b; font-size: 14px; }
+.sheet .err[hidden] { display: none; }

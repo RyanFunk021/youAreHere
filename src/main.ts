@@ -1,6 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 import './style.css';
-import { getCurrentId, listMaps, loadMap, newId, persist, saveMap, setCurrentId, type SavedMap } from './store';
+import { getCurrentId, listMaps, loadMap, loadWaypoints, newId, persist, saveMap, saveWaypoints, setCurrentId, type SavedMap } from './store';
+import { parseLatLng } from './waypoint';
 import { fitPoints } from './georef';
 import { pdfToImage, preloadPdf } from './pdf';
 import { showCalibrate } from './calibrate';
@@ -114,6 +115,20 @@ window.addEventListener('hashchange', () => { if (location.hash === '#help') go(
 const maps = await listMaps(); // also migrates the v1 single-map slot
 const lastId = await getCurrentId();
 if (lastId && maps.some(m => m.id === lastId)) current = await loadMap(lastId);
+
+// A shared waypoint link (?wp=lat,lng&name=...) adds the waypoint to the current map.
+const params = new URLSearchParams(location.search);
+const wp = params.get('wp');
+if (wp) {
+  history.replaceState(null, '', location.pathname + location.hash); // so a reload doesn't add it again
+  const r = parseLatLng(wp);
+  if ('error' in r) alert(`That waypoint link didn't work: ${r.error}`);
+  else if (!current || !fitPoints(current.points)) alert('Open and calibrate a map first, then tap the waypoint link again.');
+  else {
+    const list = await loadWaypoints(current.id);
+    await saveWaypoints(current.id, [...list, { id: Date.now().toString(36), lat: r.ll[0], lng: r.ll[1], name: (params.get('name') ?? '').slice(0, 60), created: Date.now() }]);
+  }
+}
 if (location.hash === '#help') go('help');
 else if (current) await open(current.id);
 else go('maps');

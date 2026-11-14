@@ -5,13 +5,16 @@ import { photoMap, pxToSimple } from './photo';
 import { MAX_TRAIL_ACCURACY_M, MIN_TRAIL_STEP_M } from './config';
 import { getSetting, loadPhotos, loadTrail, savePhotos, saveTrail, setSetting, type Crumb, type SavedMap, type Trail } from './store';
 import { describe, importPhotos, type HikePhoto } from './photos';
+import { bearingDeg, compass8, esc, parseLatLng, waypointLink, type Waypoint } from './waypoint';
+import { loadWaypoints, saveWaypoints } from './store';
 
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`);
 
 export function showNavigate(root: HTMLElement, map: SavedMap) {
   root.innerHTML = `<div id="nav"></div><button id="recenter" class="fab" aria-label="Zoom to my location">◎</button>
     <button id="fitmap" class="fab fitfab" aria-label="Show the whole map">⤢</button>
-    <button id="addphotos" class="fab camfab" aria-label="Add photos">📷</button><input id="photofile" type="file" accept="image/*" multiple hidden>
+    <button id="addphotos" class="fab camfab" aria-label="Add photos">📷</button>
+    <button id="addwp" class="fab wpfab" aria-label="Add a waypoint">📍</button><input id="photofile" type="file" accept="image/*" multiple hidden>
     <div id="gps" class="status">Waiting for GPS…</div>`;
   const status = root.querySelector<HTMLElement>('#gps')!;
   const fit = fitPoints(map.points)!;
@@ -105,7 +108,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
       const step = last ? distM(last, ll) : 0;
       if (!last || step >= MIN_TRAIL_STEP_M) { seg.push([latitude, longitude, Date.now()]); segM += step; dirty = true; trail.addLatLng(toMap(ll)); }
     }
-    status.textContent = `±${Math.round(accuracy)} m · this ride ${km(segM)} · total ${km(pastM + segM)}${lockFailed ? ' · screen may sleep' : ''}`;
+    status.textContent = `±${Math.round(accuracy)} m · this ride ${km(segM)} · total ${km(pastM + segM)}${targetText(ll)}${lockFailed ? ' · screen may sleep' : ''}`;
     here = toMap(ll);
     hereLL = ll;
     acc.setLatLng(here).setRadius(accuracy / fit.metersPerPx).addTo(m);
@@ -164,6 +167,78 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     root.appendChild(box);
   };
 
+  // Waypoints: highlighted stars; the "target" (last added or tapped) shows its
+  // straight-line distance and direction in the status line.
+  let waypoints: Waypoint[] = [];
+  let target: Waypoint | null = null;
+  const wpLayer = L.layerGroup().addTo(m);
+  const targetText = (from: LatLng) => target
+    ? ` · ⭐ ${target.name ? target.name + ' ' : ''}${km(distM(from, [target.lat, target.lng]))} ${compass8(bearingDeg(from, [target.lat, target.lng]))}`
+    : '';
+  const drawWaypoints = () => {
+    wpLayer.clearLayers();
+    for (const w of waypoints) {
+      const icon = L.divIcon({ className: `wp${w === target ? ' target' : ''}`, html: `<span class="star">⭐</span>${w.name ? `<span class="wpname">${esc(w.name)}</span>` : ''}`, iconSize: [34, 34], iconAnchor: [17, 17] });
+      L.marker(toMap([w.lat, w.lng]), { icon, zIndexOffset: 1000 }).on('click', () => { target = w; drawWaypoints(); showWaypoint(w); }).addTo(wpLayer);
+    }
+  };
+  loadWaypoints(map.id).then(w => { waypoints = w; target = [...w].sort((a, b) => b.created - a.created)[0] ?? null; drawWaypoints(); });
+
+  const sheet = (html: string) => {
+    root.querySelector('.sheet')?.remove();
+    const el = document.createElement('div');
+    el.className = 'sheet';
+    el.innerHTML = html;
+    root.appendChild(el);
+    return el;
+  };
+  const showWaypoint = (w: Waypoint) => {
+    const d = hereLL ? `${km(distM(hereLL, [w.lat, w.lng]))} ${compass8(bearingDeg(hereLL, [w.lat, w.lng]))} of you · ` : '';
+    const el = sheet(`<div class="msg">⭐ ${esc(w.name || 'Waypoint')}</div><div class="sub">${d}${w.lat.toFixed(5)}, ${w.lng.toFixed(5)}</div>
+      <div class="row"><button class="btn" data-w="share">Share link</button><button class="btn danger" data-w="del">Delete</button><button class="btn on" data-w="close">Close</button></div>`);
+    el.addEventListener('click', async e => {
+      const a = (e.target as HTMLElement).dataset.w;
+      if (a === 'close') el.remove();
+      if (a === 'share') {
+        const url = waypointLink(w);
+        if (navigator.share) await navigator.share({ title: w.name || 'Waypoint', url }).catch(() => {});
+        else { await navigator.clipboard?.writeText(url).catch(() => {}); prompt('Link copied. Send it to someone with this map:', url); }
+      }
+      if (a === 'del' && confirm('Delete this waypoint?')) {
+        waypoints = waypoints.filter(x => x.id !== w.id);
+        if (target?.id === w.id) target = waypoints[waypoints.length - 1] ?? null;
+        await saveWaypoints(map.id, waypoints);
+        drawWaypoints();
+        el.remove();
+      }
+    });
+  };
+  root.querySelector('#addwp')!.addEventListener('click', () => {
+    const el = sheet(`<div class="msg">Add a waypoint</div>
+      <input class="wpin" placeholder="Paste coordinates or a map link" autocomplete="off" autocapitalize="off">
+      <input class="wpname-in" placeholder="Name (optional)">
+      <div class="err" hidden></div>
+      <div class="row"><button class="btn" data-w="cancel">Cancel</button><button class="btn on" data-w="add">Add</button></div>`);
+    const input = el.querySelector<HTMLInputElement>('.wpin')!;
+    input.focus();
+    el.addEventListener('click', async e => {
+      const a = (e.target as HTMLElement).dataset.w;
+      if (a === 'cancel') el.remove();
+      if (a !== 'add') return;
+      const r = parseLatLng(input.value);
+      const err = el.querySelector<HTMLElement>('.err')!;
+      if ('error' in r) { err.textContent = r.error; err.hidden = false; return; }
+      const w: Waypoint = { id: Date.now().toString(36), lat: r.ll[0], lng: r.ll[1], name: el.querySelector<HTMLInputElement>('.wpname-in')!.value.trim(), created: Date.now() };
+      waypoints = [...waypoints, w];
+      target = w;
+      await saveWaypoints(map.id, waypoints);
+      drawWaypoints();
+      m.setView(toMap([w.lat, w.lng]), Math.max(m.getZoom(), 0));
+      userMoved = true; // the view is now where the user asked
+      el.remove();
+    });
+  });
+
   const photoInput = root.querySelector<HTMLInputElement>('#photofile')!;
   root.querySelector('#addphotos')!.addEventListener('click', () => photoInput.click());
   photoInput.addEventListener('change', async () => {
@@ -216,6 +291,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     fix.remove();
     power.remove();
     root.querySelector('.lightbox')?.remove();
+    root.querySelector('.sheet')?.remove();
     save();
     clearInterval(autosave);
     document.removeEventListener('visibilitychange', onHide);
