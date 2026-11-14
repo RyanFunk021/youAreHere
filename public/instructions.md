@@ -60,8 +60,8 @@ the fit would be without it. Delete it with **✕** and redo it.
 
 Allow location when asked. The **blue dot** is you. The faint circle around it shows
 how sure the GPS is: expect ±5 m outdoors, and much worse indoors. Your trail is drawn
-in red as you move, and the map follows you as you get near the edge. **◎** puts you
-back in the middle.
+in red as you move. The map stays where you put it: pan and pinch freely, even if you
+go off the edge of the screen. **◎** zooms back to you, and **⤢** shows the whole map.
 
 ![Navigating with the compass aligned](help/05-navigate.jpg)
 

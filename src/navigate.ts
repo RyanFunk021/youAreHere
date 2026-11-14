@@ -9,7 +9,8 @@ import { describe, importPhotos, type HikePhoto } from './photos';
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`);
 
 export function showNavigate(root: HTMLElement, map: SavedMap) {
-  root.innerHTML = `<div id="nav"></div><button id="recenter" class="fab">◎</button>
+  root.innerHTML = `<div id="nav"></div><button id="recenter" class="fab" aria-label="Zoom to my location">◎</button>
+    <button id="fitmap" class="fab fitfab" aria-label="Show the whole map">⤢</button>
     <button id="addphotos" class="fab camfab" aria-label="Add photos">📷</button><input id="photofile" type="file" accept="image/*" multiple hidden>
     <div id="gps" class="status">Waiting for GPS…</div>`;
   const status = root.querySelector<HTMLElement>('#gps')!;
@@ -42,9 +43,19 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   const onHide = () => { if (document.visibilityState === 'hidden') save(); };
   document.addEventListener('visibilitychange', onHide);
   const acc = L.circle([0, 0], { radius: 1, color: '#007aff', weight: 1, fillOpacity: 0.12, interactive: false });
-  const dot = L.circleMarker([0, 0], { radius: 8, color: '#fff', weight: 3, fillColor: '#007aff', fillOpacity: 1, interactive: false });
+  const dot = L.circleMarker([0, 0], { className: 'me-dot', radius: 8, color: '#fff', weight: 3, fillColor: '#007aff', fillOpacity: 1, interactive: false });
   let here: L.LatLng | null = null;
   let hereLL: LatLng | null = null;
+  // Free panning: any touch, drag or wheel on the map means "leave the view alone".
+  let userMoved = false, centred = false;
+  const navEl = root.querySelector<HTMLElement>('#nav')!;
+  for (const ev of ['pointerdown', 'touchstart', 'wheel']) navEl.addEventListener(ev, () => { userMoved = true; }, { passive: true });
+  // ◎: centre on you at a zoom showing roughly 300 m across, whatever the map's scale.
+  const zoomToMe = () => {
+    if (!here) return;
+    const z = Math.log2((fit.metersPerPx * navEl.clientWidth) / 300);
+    m.setView(here, Math.min(Math.max(z, m.getMinZoom()), m.getMaxZoom()));
+  };
   let lockFailed = false;
   let fixes = 0;
 
@@ -99,8 +110,9 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     hereLL = ll;
     acc.setLatLng(here).setRadius(accuracy / fit.metersPerPx).addTo(m);
     dot.setLatLng(here).addTo(m);
-    if (fixes === 1) m.setView(here, Math.max(m.getZoom(), -1));
-    else if (!m.getBounds().pad(-0.2).contains(here)) m.panTo(here); // follow when near the edge
+    // Centre on the first fix only if the user hasn't touched the map yet. After that the
+    // map never moves on its own (Corey: let your location go off-screen; ◎ brings it back).
+    if (!userMoved && !centred) { centred = true; zoomToMe(); }
   }, err => {
     // 1 = denied, 2 = unavailable, 3 = timeout (the watch keeps trying after a timeout).
     lastErr = err.code === 1
@@ -115,7 +127,8 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
   let watch = startWatch();
 
-  root.querySelector('#recenter')!.addEventListener('click', () => { if (here) m.panTo(here); });
+  root.querySelector('#recenter')!.addEventListener('click', zoomToMe);
+  root.querySelector('#fitmap')!.addEventListener('click', () => m.fitBounds(L.latLngBounds([[-map.h, 0], [0, map.w]])));
   const removeCompass = compassWidget(root, northOnPhotoDeg(fit));
 
   // Hike photos: camera dots on the map; tap one to view it.
