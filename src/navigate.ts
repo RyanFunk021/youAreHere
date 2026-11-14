@@ -53,10 +53,12 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   let userMoved = false, centred = false;
   const navEl = root.querySelector<HTMLElement>('#nav')!;
   for (const ev of ['pointerdown', 'touchstart', 'wheel']) navEl.addEventListener(ev, () => { userMoved = true; }, { passive: true });
-  // ◎: centre on you at a zoom showing roughly 300 m across, whatever the map's scale.
+  // ◎: centre on you at a zoom showing roughly 300 m across, whatever the map's scale,
+  // but never past 2 screen px per map px: a coarse scan (8.7 m/px USGS topo) would
+  // otherwise be magnified into a blur.
   const zoomToMe = () => {
     if (!here) return;
-    const z = Math.log2((fit.metersPerPx * navEl.clientWidth) / 300);
+    const z = Math.min(Math.log2((fit.metersPerPx * navEl.clientWidth) / 300), 1);
     m.setView(here, Math.min(Math.max(z, m.getMinZoom()), m.getMaxZoom()));
   };
   let lockFailed = false;
