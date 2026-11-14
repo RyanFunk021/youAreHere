@@ -37,9 +37,10 @@ same spots on the satellite view (bottom).
 
 ![A pair ready to add](help/02-calibrate-pair.jpg)
 
-Do this for **4 to 6 spots spread around the edges** of the area you'll be in. Once you
-have three pairs, tapping the map jumps the satellite view to where the app thinks that
-spot is, so the rest go quickly.
+**Two spots, far apart, are enough to start navigating.** With only two, though, the
+app can't tell whether one is off. For a trail map you'll rely on, do **4 to 6 spots
+spread around the edges** of the area you'll be in. After the first two, tapping the map
+jumps the satellite view to where the app thinks that spot is, so the rest go quickly.
 
 **Trails hidden by trees?** Tap the layers button (top right of the satellite view)
 and choose **Map** or **Map overlay**. Street-map lines show the trails, so you can tap

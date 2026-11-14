@@ -96,6 +96,25 @@ export function fitAffine(pts: ControlPoint[], origin: LatLng = centroid(pts)): 
   return { origin, m, metersPerPx: Math.sqrt(Math.abs(det)) };
 }
 
+// Exact 2-point fit: rotation + uniform scale + translation (a "similarity"). Photo v
+// points down while north points up, so with w = -v:  x = a·u + b·v + tx,  y = b·u - a·v + ty.
+// Two points give no error signal (any 2 points fit exactly); 3+ points use fitAffine.
+export function fitSimilarity2(pts: ControlPoint[], origin: LatLng = centroid(pts)): Fit | null {
+  if (pts.length !== 2) return null;
+  const [p1, p2] = pts;
+  const [x1, y1] = toENU(p1.ll, origin), [x2, y2] = toENU(p2.ll, origin);
+  const du = p2.px[0] - p1.px[0], dv = p2.px[1] - p1.px[1], dx = x2 - x1, dy = y2 - y1;
+  const q = du * du + dv * dv;
+  if (q < 1e-9) return null; // same pixel twice
+  const a = (dx * du - dy * dv) / q, b = (dx * dv + dy * du) / q;
+  const m = [a, b, x1 - a * p1.px[0] - b * p1.px[1], b, -a, y1 - b * p1.px[0] + a * p1.px[1]];
+  return { origin, m, metersPerPx: Math.hypot(a, b) };
+}
+
+// The fit used everywhere: 2 points → similarity, 3+ → least-squares affine.
+export const fitPoints = (pts: ControlPoint[], origin?: LatLng) =>
+  pts.length === 2 ? fitSimilarity2(pts, origin) : fitAffine(pts, origin);
+
 export function pxToENU(f: Fit, px: Px): [number, number] {
   const m = f.m;
   return [m[0] * px[0] + m[1] * px[1] + m[2], m[3] * px[0] + m[4] * px[1] + m[5]];

@@ -17,8 +17,9 @@ load the page.
 1. Open <https://ryanfunk021.github.io/youAreHere/> on your phone.
 2. Tap **Choose a map photo or PDF** (later: **New map**). Take a photo, or pick a photo or PDF. For a multi-page PDF it asks which page is the map.
 3. **Calibrate.** Tap a spot on the photo (top), then the same spot on the satellite
-   (bottom), then **Add pair**. Re-tap either side to adjust before adding. Do this
-   for 4–6 well-spread spots. Trail junctions, road crossings,
+   (bottom), then **Add pair**. Re-tap either side to adjust before adding. Two
+   well-separated spots are enough to start; 4–6 spread around the area are better.
+   Trail junctions, road crossings,
    parking lots and creek bends work well. Under tree canopy, switch the satellite
    to **Map** or **Map overlay** to see the trails.
    - **Fit ±N m** is how well the points agree.

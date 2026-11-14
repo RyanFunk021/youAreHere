@@ -1,5 +1,5 @@
 import * as L from 'leaflet';
-import { fitAffine, pxToLL, residuals, rms, suspect, type LatLng, type Px } from './georef';
+import { fitPoints, pxToLL, residuals, rms, suspect, type LatLng, type Px } from './georef';
 import { photoMap, pin, pxToSimple, simpleToPx } from './photo';
 import { HOME, HOME_ZOOM, SATELLITE, STREETS } from './config';
 import type { SavedMap } from './store';
@@ -41,7 +41,7 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
   ph.on('click', e => {
     pendingPx = simpleToPx(e.latlng);
     // Once a fit exists, jump the satellite to where it predicts this pixel is.
-    const f = fitAffine(map.points);
+    const f = fitPoints(map.points);
     if (f && !pendingLL) sat.panTo(pxToLL(f, pendingPx));
     draw();
   });
@@ -86,9 +86,9 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
 
     const hint = pendingPx && !pendingLL ? `Tap the same spot on the satellite`
       : pendingPx ? `Zoom in and re-tap either side to adjust`
-      : n < 3 ? `Tap a spot on the photo (${n}/3)`
-      : !fitAffine(map.points) ? 'Points are in a line · add one off to the side'
-      : n < 4 ? 'Ready to navigate · add a 4th point to check accuracy'
+      : n < 2 ? `Tap a spot on the photo (${n}/2)`
+      : !fitPoints(map.points) ? (n === 2 ? 'Those two spots are the same · pick two far apart' : 'Points are in a line · add one off to the side')
+      : n < 4 ? `Ready to navigate · ${n === 2 ? '2 points can’t show their own error; ' : ''}add ${4 - n} more to check accuracy`
       : bad >= 0 ? `Fit ±${Math.round(err!)} m · #${bad + 1} looks mis-tapped (±${Math.round(sus!.rmsWithout)} m without it)`
       : `Fit ±${Math.round(err!)} m${n < 5 ? ' · 5+ points to spot a mis-tap' : ''}`;
     const actions = pendingPx

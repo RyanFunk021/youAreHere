@@ -1,5 +1,5 @@
 import * as L from 'leaflet';
-import { distM, fitAffine, llToPx, northOnPhotoDeg, pathM, type LatLng, type Pt } from './georef';
+import { distM, fitPoints, llToPx, northOnPhotoDeg, pathM, type LatLng, type Pt } from './georef';
 import { compassWidget } from './compass';
 import { photoMap, pxToSimple } from './photo';
 import { MAX_TRAIL_ACCURACY_M, MIN_TRAIL_STEP_M } from './config';
@@ -13,7 +13,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     <button id="addphotos" class="fab camfab" aria-label="Add photos">📷</button><input id="photofile" type="file" accept="image/*" multiple hidden>
     <div id="gps" class="status">Waiting for GPS…</div>`;
   const status = root.querySelector<HTMLElement>('#gps')!;
-  const fit = fitAffine(map.points)!;
+  const fit = fitPoints(map.points)!;
   const url = URL.createObjectURL(map.blob);
   const m = photoMap(root.querySelector<HTMLElement>('#nav')!, url, map.w, map.h);
   const toMap = (p: Pt) => pxToSimple(llToPx(fit, [p[0], p[1]]));

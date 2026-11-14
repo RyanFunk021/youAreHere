@@ -14,7 +14,7 @@ export function showMaps(root: HTMLElement, cb: { open(id: string): void; pick()
       <li data-id="${m.id}">
         <button class="row-open" data-act="open">
           <div class="name">${esc(m.name)}</div>
-          <div class="meta">${m.points >= 3 ? `${m.points} points` : 'not calibrated'} · trail ${km(m.trailM)} · ${new Date(m.updated).toLocaleDateString()}</div>
+          <div class="meta">${m.points >= 2 ? `${m.points} points` : 'not calibrated'} · trail ${km(m.trailM)} · ${new Date(m.updated).toLocaleDateString()}</div>
         </button>
         <div class="row-actions">
           <button class="btn" data-act="rename">Rename</button>
