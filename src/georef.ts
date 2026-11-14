@@ -20,12 +20,17 @@ export interface Fit {
 const R = 6378137;
 const D2R = Math.PI / 180;
 
+// Local plane around origin o. East uses each point's own latitude (a sinusoidal
+// projection), so meridians converge as on a real map: a 15' USGS sheet's top edge is
+// 0.37% narrower than its bottom. A single cos(lat0) would mis-place the corners of
+// large maps by ~20 m; for small trail maps the two are identical.
 export function toENU(ll: LatLng, o: LatLng): [number, number] {
-  return [(ll[1] - o[1]) * D2R * R * Math.cos(o[0] * D2R), (ll[0] - o[0]) * D2R * R];
+  return [(ll[1] - o[1]) * D2R * R * Math.cos(ll[0] * D2R), (ll[0] - o[0]) * D2R * R];
 }
 
 export function fromENU(xy: [number, number], o: LatLng): LatLng {
-  return [o[0] + xy[1] / (R * D2R), o[1] + xy[0] / (R * D2R * Math.cos(o[0] * D2R))];
+  const lat = o[0] + xy[1] / (R * D2R);
+  return [lat, o[1] + xy[0] / (R * D2R * Math.cos(lat * D2R))];
 }
 
 // Great-circle distance in meters (haversine).
