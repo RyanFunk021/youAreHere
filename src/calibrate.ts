@@ -87,7 +87,8 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
     if (pendingPx) L.marker(pxToSimple(pendingPx), { icon: pin(n + 1, 'pending'), interactive: false }).addTo(phLayer);
     if (pendingLL) L.marker(pendingLL, { icon: pin(n + 1, 'pending'), interactive: false }).addTo(satLayer);
 
-    const hint = pendingPx && !pendingLL ? `Tap the same spot on the satellite`
+    const offline = navigator.onLine ? '' : 'Offline: satellite imagery needs a connection · ';
+    const hint = offline + (pendingPx && !pendingLL ? `Tap the same spot on the satellite`
       : pendingPx ? `Zoom in and re-tap either side to adjust`
       : n < 2 ? `Tap a spot on the photo (${n}/2)`
       : !fitPoints(map.points) ? (n === 2 ? 'Those two spots are the same · pick two far apart' : 'Points are in a line · add one off to the side')
@@ -96,7 +97,7 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
       : bad >= 0 ? `Fit ±${Math.round(err!)} m · #${bad + 1} looks mis-tapped (±${Math.round(sus!.rmsWithout)} m without it)`
       : flex ? `Flexible: follows every point exactly · the rigid fit is ±${Math.round(err!)} m off, so the map is ${err! > 25 ? 'stretched' : 'nearly true to scale'}`
       : n >= 5 && err! > 25 ? `Fit ±${Math.round(err!)} m · this map looks stretched (ski maps often are): try Flexible`
-      : `Fit ±${Math.round(err!)} m${n < 5 ? ' · 5+ points to spot a mis-tap' : ''}`;
+      : `Fit ±${Math.round(err!)} m${n < 5 ? ' · 5+ points to spot a mis-tap' : ''}`);
     const actions = pendingPx
       ? `<div class="actions"><button id="cancel" class="btn">Cancel</button><button id="add" class="btn on" ${pendingLL ? '' : 'disabled'}>Add pair ${n + 1}</button></div>`
       : '';

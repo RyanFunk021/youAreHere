@@ -42,7 +42,8 @@ street grid (right).</sub></p>
   only network use is map tiles while calibrating.
 
 It works with the screen on (a web page can't track GPS in a locked pocket). It can
-be added to the home screen.
+be added to the home screen, and it **works offline** after the first visit (in Safari
+and the home-screen app; iOS doesn't allow it inside Chrome).
 
 **Field-tested** on real trails by the friend who asked for it. Full instructions,
 with screenshots, are in the app (**?**) and at

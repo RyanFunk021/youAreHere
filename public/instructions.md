@@ -153,6 +153,17 @@ move a map over, open the app in your browser, tap **Share** on the map and save
 file. Then, in the home-screen app, tap **Add a map** and choose that file. It also asks
 for location permission again the first time.
 
+## 7. No signal on the trail
+
+Once you've opened You Are Here with a connection, it **keeps working with no signal**:
+your maps, GPS dot, trail, waypoints and these instructions all work offline. GPS
+itself never needed signal.
+
+- **Use Safari or the home-screen app for this.** iPhone doesn't let Chrome keep web
+  apps offline, so in Chrome the page needs signal to open.
+- **Calibrating needs a connection**, because the satellite view is downloaded. Set
+  your map up before you lose signal.
+
 ---
 
 ## Troubleshooting

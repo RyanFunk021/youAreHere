@@ -130,6 +130,10 @@ bNav.addEventListener('click', () => go('nav'));
 bHelp.addEventListener('click', () => go('help'));
 window.addEventListener('hashchange', () => { if (location.hash === '#help') go('help'); });
 
+// Offline support. Works in Safari and in the home-screen app; iOS doesn't allow service
+// workers inside third-party browsers like Chrome, so registration simply fails there.
+if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('sw.js').catch(() => {});
+
 // Reopen the last map; otherwise show the library (which is also the first-run screen).
 const maps = await listMaps(); // also migrates the v1 single-map slot
 const lastId = await getCurrentId();
