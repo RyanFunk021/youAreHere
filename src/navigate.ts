@@ -1,5 +1,6 @@
 import * as L from 'leaflet';
-import { distM, fitPoints, llToPx, northOnPhotoDeg, pathM, type LatLng, type Pt } from './georef';
+import { distM, pathM, type LatLng, type Pt } from './georef';
+import { makeWarp } from './warp';
 import { compassWidget } from './compass';
 import { photoMap, pxToSimple } from './photo';
 import { MAX_TRAIL_ACCURACY_M, MIN_TRAIL_STEP_M } from './config';
@@ -17,10 +18,10 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     <button id="addwp" class="fab wpfab" aria-label="Add a waypoint">📍</button><input id="photofile" type="file" accept="image/*" multiple hidden>
     <div id="gps" class="status">Waiting for GPS…</div>`;
   const status = root.querySelector<HTMLElement>('#gps')!;
-  const fit = fitPoints(map.points)!;
+  const fit = makeWarp(map.points, map.warp ?? 'rigid', map.w, map.h)!; // rigid or flexible (ski maps)
   const url = URL.createObjectURL(map.blob);
   const m = photoMap(root.querySelector<HTMLElement>('#nav')!, url, map.w, map.h);
-  const toMap = (p: Pt) => pxToSimple(llToPx(fit, [p[0], p[1]]));
+  const toMap = (p: Pt) => pxToSimple(fit.toPx([p[0], p[1]]));
 
   // Breadcrumbs are saved per map as lat/lng (so recalibrating re-projects them).
   // Earlier rides load as their own segments; this session appends a new one.
@@ -134,7 +135,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
 
   root.querySelector('#recenter')!.addEventListener('click', zoomToMe);
   root.querySelector('#fitmap')!.addEventListener('click', () => m.fitBounds(L.latLngBounds([[-map.h, 0], [0, map.w]])));
-  const removeCompass = compassWidget(root, northOnPhotoDeg(fit));
+  const removeCompass = compassWidget(root, fit.north);
 
   // Hike photos: camera dots on the map; tap one to view it.
   let photos: HikePhoto[] = [];

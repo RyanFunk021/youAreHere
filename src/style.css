@@ -108,3 +108,6 @@ main { flex: 1; position: relative; min-height: 0; }
 .installed-note { margin-top: 18px; padding: 12px 14px; border-radius: 12px; background: #1c2a3a; color: #cfe3ff; font-size: 14px; line-height: 1.45; }
 .maps .demo { display: block; width: 100%; margin-top: 12px; padding: 14px 0; font-size: 15px; background: #23352a; color: #d8f0de; }
 .toast { position: fixed; left: 16px; right: 16px; top: calc(70px + env(safe-area-inset-top)); z-index: 3000; padding: 12px 14px; border-radius: 12px; background: #1e4d2b; color: #e6ffe9; font-size: 15px; box-shadow: 0 2px 12px #000c; }
+.modes { display: flex; gap: 6px; margin-bottom: 6px; }
+.modes button { flex: 1; padding: 8px 0; border: 0; border-radius: 8px; background: #2c2c2e; color: #ccc; font: 14px system-ui; }
+.modes button.on { background: #30d158; color: #000; font-weight: 600; }

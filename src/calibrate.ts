@@ -1,5 +1,6 @@
 import * as L from 'leaflet';
-import { fitPoints, pxToLL, residuals, rms, suspect, type LatLng, type Px } from './georef';
+import { fitPoints, residuals, rms, suspect, type LatLng, type Px } from './georef';
+import { canFlex, makeWarp } from './warp';
 import { photoMap, pin, pxToSimple, simpleToPx } from './photo';
 import { HOME, HOME_ZOOM, SATELLITE, STREETS } from './config';
 import type { SavedMap } from './store';
@@ -41,8 +42,8 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
   ph.on('click', e => {
     pendingPx = simpleToPx(e.latlng);
     // Once a fit exists, jump the satellite to where it predicts this pixel is.
-    const f = fitPoints(map.points);
-    if (f && !pendingLL) sat.panTo(pxToLL(f, pendingPx));
+    const f = makeWarp(map.points, map.warp ?? 'rigid', map.w, map.h);
+    if (f && !pendingLL) sat.panTo(f.toLL(pendingPx));
     draw();
   });
 
@@ -54,6 +55,7 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
 
   bar.addEventListener('click', e => {
     const t = e.target as HTMLElement;
+    if (t.dataset.mode) { map.warp = t.dataset.mode as 'rigid' | 'flexible'; save(); draw(); return; }
     if (t.id === 'add' && pendingPx && pendingLL) {
       map.points.push({ px: pendingPx, ll: pendingLL });
     } else if (t.id === 'cancel') {
@@ -81,6 +83,7 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
       L.marker(p.ll, { icon: pin(i + 1, cls), interactive: false }).addTo(satLayer);
     });
     const n = map.points.length;
+    const flex = map.warp === 'flexible' && canFlex(map.points) ? makeWarp(map.points, 'flexible', map.w, map.h) : null;
     if (pendingPx) L.marker(pxToSimple(pendingPx), { icon: pin(n + 1, 'pending'), interactive: false }).addTo(phLayer);
     if (pendingLL) L.marker(pendingLL, { icon: pin(n + 1, 'pending'), interactive: false }).addTo(satLayer);
 
@@ -89,7 +92,10 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
       : n < 2 ? `Tap a spot on the photo (${n}/2)`
       : !fitPoints(map.points) ? (n === 2 ? 'Those two spots are the same · pick two far apart' : 'Points are in a line · add one off to the side')
       : n < 4 ? `Ready to navigate · ${n === 2 ? '2 points can’t show their own error; ' : ''}add ${4 - n} more to check accuracy`
+      : flex && flex.folds.length ? `Flexible fit folds near ${flex.folds.map(i => '#' + (i + 1)).join(', ')}: check those points`
       : bad >= 0 ? `Fit ±${Math.round(err!)} m · #${bad + 1} looks mis-tapped (±${Math.round(sus!.rmsWithout)} m without it)`
+      : flex ? `Flexible: follows every point exactly · the rigid fit is ±${Math.round(err!)} m off, so the map is ${err! > 25 ? 'stretched' : 'nearly true to scale'}`
+      : n >= 5 && err! > 25 ? `Fit ±${Math.round(err!)} m · this map looks stretched (ski maps often are): try Flexible`
       : `Fit ±${Math.round(err!)} m${n < 5 ? ' · 5+ points to spot a mis-tap' : ''}`;
     const actions = pendingPx
       ? `<div class="actions"><button id="cancel" class="btn">Cancel</button><button id="add" class="btn on" ${pendingLL ? '' : 'disabled'}>Add pair ${n + 1}</button></div>`
@@ -97,7 +103,11 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
     const chips = map.points.map((_, i) =>
       `<span class="chip ${i === bad ? 'bad' : ''}">${i + 1}${res ? ` · ${Math.round(res[i])} m` : ''}<b data-del="${i}">✕</b></span>`
     ).join('');
-    bar.innerHTML = `<div class="hint">${hint}</div>${actions || `<div class="chips">${chips}</div>`}`;
+    // Rigid vs Flexible (a smooth warp through every point, for painted/ski maps).
+    const modes = !pendingPx && canFlex(map.points)
+      ? `<div class="modes"><button class="${flex ? '' : 'on'}" data-mode="rigid">Rigid</button><button class="${flex ? 'on' : ''}" data-mode="flexible">Flexible (ski maps)</button></div>`
+      : '';
+    bar.innerHTML = `<div class="hint">${hint}</div>${modes}${actions || `<div class="chips">${chips}</div>`}`;
   }
   draw();
 

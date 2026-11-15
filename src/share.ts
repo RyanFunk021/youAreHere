@@ -8,7 +8,7 @@ import type { Waypoint } from './waypoint';
 const FORMAT = 'youAreHere-map';
 export const isMapFile = (f: File) => f.type === 'application/json' || /\.json$/i.test(f.name);
 
-interface MapFile { format: string; version: number; name: string; points: ControlPoint[]; waypoints: Waypoint[]; image: string }
+interface MapFile { format: string; version: number; name: string; points: ControlPoint[]; warp?: string; waypoints: Waypoint[]; image: string }
 
 const toDataURL = (b: Blob) => new Promise<string>((ok, fail) => {
   const r = new FileReader();
@@ -18,14 +18,14 @@ const toDataURL = (b: Blob) => new Promise<string>((ok, fail) => {
 });
 
 export async function packMap(map: SavedMap, waypoints: Waypoint[]): Promise<File> {
-  const body: MapFile = { format: FORMAT, version: 1, name: map.name, points: map.points, waypoints, image: await toDataURL(map.blob) };
+  const body: MapFile = { format: FORMAT, version: 1, name: map.name, points: map.points, warp: map.warp, waypoints, image: await toDataURL(map.blob) };
   const safe = map.name.replace(/[^\w\- ]+/g, '').trim().slice(0, 40) || 'map';
   return new File([JSON.stringify(body)], `${safe}.youarehere.json`, { type: 'application/json' });
 }
 
 // The file comes from someone else's phone: check every field before trusting it.
 const num = (x: unknown) => typeof x === 'number' && Number.isFinite(x);
-export async function unpackMap(file: File): Promise<{ name: string; blob: Blob; points: ControlPoint[]; waypoints: Waypoint[] }> {
+export async function unpackMap(file: File): Promise<{ name: string; blob: Blob; points: ControlPoint[]; warp: 'rigid' | 'flexible'; waypoints: Waypoint[] }> {
   let d: Partial<MapFile>;
   try { d = JSON.parse(await file.text()); } catch { throw new Error('This file isn’t a youAreHere map (not valid JSON).'); }
   if (d?.format !== FORMAT) throw new Error('This file isn’t a youAreHere map.');
@@ -36,7 +36,7 @@ export async function unpackMap(file: File): Promise<{ name: string; blob: Blob;
   const waypoints = (Array.isArray(d.waypoints) ? d.waypoints : []).filter(w => num(w?.lat) && num(w?.lng) && Math.abs(w.lat) <= 90 && Math.abs(w.lng) <= 180)
     .map((w, i) => ({ id: Date.now().toString(36) + i, lat: w.lat, lng: w.lng, name: String(w.name ?? '').slice(0, 60), created: Date.now() + i }));
   const blob = await (await fetch(d.image)).blob();
-  return { name: String(d.name ?? 'Shared map').slice(0, 60) || 'Shared map', blob, points, waypoints };
+  return { name: String(d.name ?? 'Shared map').slice(0, 60) || 'Shared map', blob, points, warp: d.warp === 'flexible' ? 'flexible' : 'rigid', waypoints };
 }
 
 // Share sheet where the browser can share files; otherwise download the file.

@@ -51,7 +51,7 @@ function centroid(pts: ControlPoint[]): LatLng {
 }
 
 // Gaussian elimination with partial pivoting, n x n.
-function solve(A: number[][], b: number[]): number[] | null {
+export function solve(A: number[][], b: number[]): number[] | null {
   const n = b.length;
   const M = A.map((row, i) => [...row, b[i]]);
   for (let c = 0; c < n; c++) {

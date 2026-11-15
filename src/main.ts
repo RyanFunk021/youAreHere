@@ -90,7 +90,7 @@ file.addEventListener('change', async () => {
     // called "image.jpg", so give those a dated name instead.
     const base = f.name.replace(/\.[^.]+$/, '');
     const name = shared?.name ?? (!base || /^image$/i.test(base) ? `Map ${new Date().toLocaleDateString()}` : base);
-    current = { id: newId(), name, blob, w: img.naturalWidth, h: img.naturalHeight, points: shared?.points ?? geoPoints ?? [] };
+    current = { id: newId(), name, blob, w: img.naturalWidth, h: img.naturalHeight, points: shared?.points ?? geoPoints ?? [], warp: shared?.warp };
     if (geoPoints) toast(`This PDF carries its own coordinates, so it's ready to navigate. No calibration needed.`);
     URL.revokeObjectURL(img.src);
     setStage('Saving');

@@ -66,6 +66,14 @@ the fit would be without it. Delete it with **✕** and redo it.
 
 ![A mis-tapped pair flagged in red](help/04-calibrate-mistap.jpg)
 
+**Ski maps and other stretchy maps.** Painted resort maps and panoramas aren't drawn to
+scale: far slopes are squeezed and runs are bent to fit. If the fit error stays high
+even with no mis-taps, the app suggests **Flexible**. With 4 or more pairs, tap
+**Flexible (ski maps)**: the map then bends to pass exactly through every pair. It's
+only as good as your pairs, so add them where you'll be: lift stations, run
+junctions and the base lodge. If the app says the flexible fit "folds" near some
+points, one of those is probably mis-tapped.
+
 ## 3. Navigate
 
 Allow location when asked. The **blue dot** is you. The faint circle around it shows

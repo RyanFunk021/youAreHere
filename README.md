@@ -27,6 +27,8 @@ street grid (right).</sub></p>
 - **Calibrate with 2+ taps:** tap a spot on the map, then the same spot on
   satellite or street-map imagery. Two pairs are enough. With more, it reports the
   fit error and flags a mis-tapped point.
+- **Flexible fit for ski maps:** painted, panoramic maps get a thin-plate-spline
+  warp through every pair instead of one rigid fit.
 - **Navigate:** your live position, a breadcrumb trail saved per map, free
   pan/zoom, an orienteering compass for lining the map up with the land, and a
   battery saver.
@@ -52,7 +54,10 @@ with screenshots, are in the app (**?**) and at
 - **Calibration** maps photo pixels to a local plane around the map's centre (a
   sinusoidal projection, so meridians converge as on a real map). Two pairs give an
   exact rotation + scale + shift. Three or more give a least-squares affine fit. GPS
-  positions go through the inverse.
+  positions go through the inverse. **Flexible** mode adds a thin-plate spline (exact at every pair,
+  relaxing to the affine far away, inverted by Newton's method). On a synthetic
+  panorama it cuts the median error from 127 m to 39 m and flags folds from
+  mis-taps.
 - **Error you can trust:** the residual of a single point can't identify a mis-tap
   (in simulation it names the wrong point about half the time). The app flags the
   point whose *removal* most improves the fit, which is right about 94% of the time

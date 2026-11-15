@@ -2,6 +2,7 @@ import { get, set, del, update } from 'idb-keyval';
 import { pathM, type ControlPoint } from './georef';
 import type { HikePhoto } from './photos';
 import type { Waypoint } from './waypoint';
+import type { WarpMode } from './warp';
 
 // Everything lives in IndexedDB on the device.
 //   map:<id>    photo + control points (control points are the source of truth; the fit is derived)
@@ -10,7 +11,7 @@ import type { Waypoint } from './waypoint';
 //   waypoints:<id> pasted / linked waypoints
 //   maps        small index for the Maps screen, so listing doesn't load every photo
 //   current     id of the last-opened map
-export interface SavedMap { id: string; name: string; blob: Blob; w: number; h: number; points: ControlPoint[] }
+export interface SavedMap { id: string; name: string; blob: Blob; w: number; h: number; points: ControlPoint[]; warp?: WarpMode }
 export interface MapMeta { id: string; name: string; updated: number; points: number; trailM: number }
 // Breadcrumb: [lat, lng, epoch ms]. Time added 2026-11-12 (older crumbs have none);
 // it lets hike photos be placed by when they were taken.
