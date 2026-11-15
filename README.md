@@ -21,6 +21,9 @@ street grid (right).</sub></p>
 ## What it does
 
 - **Any map:** a photo, a screenshot, or a PDF (it asks which page).
+- **Zero-tap GeoPDFs:** PDFs with built-in coordinates (USGS topos, many
+  NPS/USFS maps, in either the OGC LGIDict or ISO 32000 format) are calibrated
+  automatically, with proj4 handling their projection and datum.
 - **Calibrate with 2+ taps:** tap a spot on the map, then the same spot on
   satellite or street-map imagery. Two pairs are enough. With more, it reports the
   fit error and flags a mis-tapped point.

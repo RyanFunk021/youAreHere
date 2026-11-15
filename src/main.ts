@@ -2,7 +2,7 @@ import 'leaflet/dist/leaflet.css';
 import './style.css';
 import { getCurrentId, listMaps, loadMap, loadWaypoints, newId, persist, saveMap, saveWaypoints, setCurrentId, type SavedMap } from './store';
 import { parseLatLng } from './waypoint';
-import { fitPoints } from './georef';
+import { fitPoints, type ControlPoint } from './georef';
 import { pdfToImage, preloadPdf } from './pdf';
 import { isMapFile, unpackMap } from './share';
 import { showCalibrate } from './calibrate';
@@ -74,8 +74,13 @@ file.addEventListener('change', async () => {
   try {
     let blob: Blob = f;
     let shared: Awaited<ReturnType<typeof unpackMap>> | null = null;
+    let geoPoints: ControlPoint[] | null = null;
     if (isMapFile(f)) { setStage('Opening shared map'); shared = await unpackMap(f); blob = shared.blob; }
-    else if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) blob = await pdfToImage(f, setStage);
+    else if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
+      const r = await pdfToImage(f, setStage);
+      blob = r.blob;
+      if (r.points.length >= 2) geoPoints = r.points; // a GeoPDF: calibrated with zero taps
+    }
     setStage('Decoding image');
     // <img> natural size respects EXIF orientation, same as Leaflet's imageOverlay.
     const img = new Image();
@@ -85,7 +90,8 @@ file.addEventListener('change', async () => {
     // called "image.jpg", so give those a dated name instead.
     const base = f.name.replace(/\.[^.]+$/, '');
     const name = shared?.name ?? (!base || /^image$/i.test(base) ? `Map ${new Date().toLocaleDateString()}` : base);
-    current = { id: newId(), name, blob, w: img.naturalWidth, h: img.naturalHeight, points: shared?.points ?? [] };
+    current = { id: newId(), name, blob, w: img.naturalWidth, h: img.naturalHeight, points: shared?.points ?? geoPoints ?? [] };
+    if (geoPoints) toast(`This PDF carries its own coordinates, so it's ready to navigate. No calibration needed.`);
     URL.revokeObjectURL(img.src);
     setStage('Saving');
     await saveMap(current);
@@ -105,6 +111,15 @@ file.addEventListener('change', async () => {
   }
   go(current && fitPoints(current.points) ? 'nav' : 'cal'); // a shared map arrives calibrated
 });
+
+// A short message that floats over whatever screen comes next.
+function toast(text: string) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
 
 // Start fetching pdf.js while the user is still in the file picker.
 const preload = () => { preloadPdf(); file.click(); };

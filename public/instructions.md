@@ -24,6 +24,11 @@ or choose a PDF. If the PDF has several pages, the app asks which page is the ma
 
 ![The start screen](help/01-start.jpg)
 
+**Maps with built-in coordinates.** Some PDFs carry their own location data
+("GeoPDFs"): USGS topographic maps, and many National Park Service and Forest
+Service maps. Those open **ready to navigate, with no calibrating**. You'll see a
+message saying so.
+
 Tips for a good photo:
 
 - Stand straight in front of the board, not at an angle.
