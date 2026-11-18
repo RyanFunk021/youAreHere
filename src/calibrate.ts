@@ -19,11 +19,34 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
   L.control.layers({ Satellite: imagery, Map: streets }, { 'Map overlay': streetsOver }, { position: 'topright' }).addTo(sat);
 
   if (map.points.length) sat.fitBounds(L.latLngBounds(map.points.map(p => p.ll)), { padding: [30, 30], maxZoom: 17 });
-  else {
-    // First calibration usually happens at the trailhead: start where the user is.
-    sat.setView(HOME, HOME_ZOOM);
-    navigator.geolocation.getCurrentPosition(p => sat.setView([p.coords.latitude, p.coords.longitude], 16), () => {}, { enableHighAccuracy: true });
-  }
+  else sat.setView(HOME, HOME_ZOOM);
+
+  // Your location on the satellite view. Calibration usually happens at the trailhead,
+  // so with no pairs yet the satellite jumps to you (unless you've started panning), and
+  // the first tap on the map zooms it in on you. ◎ jumps back any time.
+  // (Ryan's hike: a one-shot request with no timeout could wait forever on iPhone.)
+  let me: LatLng | null = null, locErr = '', satTouched = false;
+  const meDot = L.circleMarker([0, 0], { radius: 7, color: '#fff', weight: 3, fillColor: '#007aff', fillOpacity: 1, interactive: false });
+  const satEl = root.querySelector<HTMLElement>('#sat')!;
+  for (const ev of ['pointerdown', 'touchstart', 'wheel']) satEl.addEventListener(ev, () => { satTouched = true; }, { passive: true });
+  const goToMe = () => { if (me) sat.setView(me, Math.max(sat.getZoom(), 17)); };
+  const watch = navigator.geolocation.watchPosition(p => {
+    const first = !me;
+    me = [p.coords.latitude, p.coords.longitude];
+    locErr = '';
+    meDot.setLatLng(me).addTo(sat);
+    if (first && !map.points.length && !satTouched) goToMe();
+    if (first) draw();
+  }, e => { locErr = e.code === 1 ? 'location is blocked' : 'your location isn’t available yet'; if (!me) draw(); },
+  { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 });
+  const LocateControl = L.Control.extend({ onAdd: () => {
+    const b = L.DomUtil.create('button', 'sat-locate');
+    b.textContent = '◎'; b.title = 'Go to my location';
+    L.DomEvent.disableClickPropagation(b);
+    b.addEventListener('click', () => { satTouched = true; if (me) goToMe(); else draw(); });
+    return b;
+  } });
+  new LocateControl({ position: 'bottomright' }).addTo(sat);
 
   // The bar between the maps changes height (hint wraps, Cancel/Add replaces the chips),
   // which resizes both panels. Leaflet must be told, or its centre goes stale: the
@@ -44,6 +67,7 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
     // Once a fit exists, jump the satellite to where it predicts this pixel is.
     const f = makeWarp(map.points, map.warp ?? 'rigid', map.w, map.h);
     if (f && !pendingLL) sat.panTo(f.toLL(pendingPx));
+    else if (!f && !pendingLL && !map.points.length) goToMe(); // first pair: start where you're standing
     draw();
   });
 
@@ -90,7 +114,7 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
     const offline = navigator.onLine ? '' : 'Offline: satellite imagery needs a connection · ';
     const hint = offline + (pendingPx && !pendingLL ? `Tap the same spot on the satellite`
       : pendingPx ? `Zoom in and re-tap either side to adjust`
-      : n < 2 ? `Tap a spot on the photo (${n}/2)`
+      : n < 2 ? `Tap a spot on the photo (${n}/2)${!me && n === 0 ? (locErr ? ` · ${locErr}: pan the satellite to the map’s area` : ' · finding your location…') : ''}`
       : !fitPoints(map.points) ? (n === 2 ? 'Those two spots are the same · pick two far apart' : 'Points are in a line · add one off to the side')
       : n < 4 ? `Ready to navigate · ${n === 2 ? '2 points can’t show their own error; ' : ''}add ${4 - n} more to check accuracy`
       : flex && flex.folds.length ? `Flexible fit folds near ${flex.folds.map(i => '#' + (i + 1)).join(', ')}: check those points`
@@ -112,5 +136,5 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
   }
   draw();
 
-  return () => { ro.disconnect(); ph.remove(); sat.remove(); URL.revokeObjectURL(url); };
+  return () => { navigator.geolocation.clearWatch(watch); ro.disconnect(); ph.remove(); sat.remove(); URL.revokeObjectURL(url); };
 }

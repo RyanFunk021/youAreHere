@@ -1,6 +1,6 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: #111; color: #eee; font: 15px/1.3 system-ui, -apple-system, sans-serif; }
-body { display: flex; flex-direction: column; height: 100dvh; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+body { display: flex; flex-direction: column; height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 
 header { display: flex; gap: 6px; padding: 6px; background: #1c1c1e; }
 .btn { flex: 1; padding: 10px 0; border: 0; border-radius: 8px; background: #2c2c2e; color: #eee; font: inherit; text-align: center; }
@@ -111,3 +111,23 @@ main { flex: 1; position: relative; min-height: 0; }
 .modes { display: flex; gap: 6px; margin-bottom: 6px; }
 .modes button { flex: 1; padding: 8px 0; border: 0; border-radius: 8px; background: #2c2c2e; color: #ccc; font: 14px system-ui; }
 .modes button.on { background: #30d158; color: #000; font-weight: 600; }
+.sat-locate { width: 44px; height: 44px; border: 0; border-radius: 8px; background: #fff; color: #0a84ff; font-size: 24px; box-shadow: 0 1px 5px #0006; }
+
+/* Landscape phones (Ryan's hike): side-by-side calibration, buttons along the bottom. */
+@media (orientation: landscape) and (max-height: 540px) {
+  header { padding: 4px 6px; }
+  header .btn { padding: 6px 0; }
+  .cal { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .cal #ph { grid-column: 1; grid-row: 1; }
+  .cal #sat { grid-column: 2; grid-row: 1; border-left: 1px solid #333; }
+  .cal #bar { grid-column: 1 / span 2; grid-row: 2; padding: 4px 8px; }
+  .hint { margin-bottom: 4px; font-size: 14px; }
+  .fab { bottom: 10px; width: 44px; height: 44px; font-size: 22px; }
+  #recenter { right: 10px; }
+  .fitfab { right: 62px; }
+  .camfab { right: 114px; }
+  .wpfab { right: 166px; }
+  .status { bottom: 14px; max-width: calc(100% - 250px); }
+  .compass svg { width: 56px; height: 56px; }
+  .sheet, .locfix { top: 60px; left: 20%; right: 20%; }
+}
