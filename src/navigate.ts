@@ -64,6 +64,8 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   };
   let lockFailed = false;
   let fixes = 0;
+  let offBy = 0;
+  const fitWhole = () => m.fitBounds(L.latLngBounds([[-map.h, 0], [0, map.w]]));
 
   // While waiting, show elapsed time and the permission state, so a blocked
   // permission doesn't look the same as a slow fix.
@@ -114,11 +116,16 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     status.textContent = `±${Math.round(accuracy)} m · this ride ${km(segM)} · total ${km(pastM + segM)}${targetText(ll)}${lockFailed ? ' · screen may sleep' : ''}`;
     here = toMap(ll);
     hereLL = ll;
+    // Off the map image? (Usually a bad calibration.) Say how far, and don't fly the
+    // view out to an empty background on the first fix: show the map instead.
+    const px = fit.toPx(ll), cx = Math.min(Math.max(px[0], 0), map.w), cy = Math.min(Math.max(px[1], 0), map.h);
+    offBy = Math.hypot(px[0] - cx, px[1] - cy) * fit.metersPerPx;
     acc.setLatLng(here).setRadius(accuracy / fit.metersPerPx).addTo(m);
     dot.setLatLng(here).addTo(m);
     // Centre on the first fix only if the user hasn't touched the map yet. After that the
     // map never moves on its own (Corey: let your location go off-screen; ◎ brings it back).
-    if (!userMoved && !centred) { centred = true; zoomToMe(); }
+    if (!userMoved && !centred) { centred = true; if (offBy > 50) fitWhole(); else zoomToMe(); }
+    if (offBy > 50) status.textContent += ` · you're ${km(offBy)} off this map: if you're actually on it, re-check the calibration`;
   }, err => {
     // 1 = denied, 2 = unavailable, 3 = timeout (the watch keeps trying after a timeout).
     lastErr = err.code === 1
@@ -134,7 +141,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   let watch = startWatch();
 
   root.querySelector('#recenter')!.addEventListener('click', zoomToMe);
-  root.querySelector('#fitmap')!.addEventListener('click', () => m.fitBounds(L.latLngBounds([[-map.h, 0], [0, map.w]])));
+  root.querySelector('#fitmap')!.addEventListener('click', fitWhole);
   const removeCompass = compassWidget(root, fit.north);
 
   // Hike photos: camera dots on the map; tap one to view it.

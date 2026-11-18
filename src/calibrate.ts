@@ -92,6 +92,19 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
     draw();
   });
 
+  // Two pairs always fit exactly, so they can't show an error, but they can still be
+  // implausible: two spots close together on the map, or a scale no real map has.
+  // (Ryan's hike: a bad pair left the dot kilometres off the map.)
+  function twoPointWarning(): string | null {
+    const [a, b] = map.points, f = fitPoints(map.points);
+    if (!f) return null;
+    if (Math.hypot(a.px[0] - b.px[0], a.px[1] - b.px[1]) < 0.15 * Math.hypot(map.w, map.h))
+      return 'Those two spots are close together on the map: add one far from them, or redo one';
+    if (f.metersPerPx < 0.05 || f.metersPerPx > 60)
+      return `These two pairs give an unlikely scale (${f.metersPerPx < 1 ? f.metersPerPx.toFixed(2) : Math.round(f.metersPerPx)} m per map pixel): one is probably off. Delete it with ✕ and redo it`;
+    return null;
+  }
+
   function draw() {
     phLayer.clearLayers();
     satLayer.clearLayers();
@@ -116,6 +129,7 @@ export function showCalibrate(root: HTMLElement, map: SavedMap, save: () => void
       : pendingPx ? `Zoom in and re-tap either side to adjust`
       : n < 2 ? `Tap a spot on the photo (${n}/2)${!me && n === 0 ? (locErr ? ` · ${locErr}: pan the satellite to the map’s area` : ' · finding your location…') : ''}`
       : !fitPoints(map.points) ? (n === 2 ? 'Those two spots are the same · pick two far apart' : 'Points are in a line · add one off to the side')
+      : n === 2 && twoPointWarning() ? twoPointWarning()!
       : n < 4 ? `Ready to navigate · ${n === 2 ? '2 points can’t show their own error; ' : ''}add ${4 - n} more to check accuracy`
       : flex && flex.folds.length ? `Flexible fit folds near ${flex.folds.map(i => '#' + (i + 1)).join(', ')}: check those points`
       : bad >= 0 ? `Fit ±${Math.round(err!)} m · #${bad + 1} looks mis-tapped (±${Math.round(sus!.rmsWithout)} m without it)`
