@@ -128,16 +128,6 @@ open it. **Rename**, **Clear trail** and **Delete** do what they say.
 
 ![The Maps screen](help/07-maps.jpg)
 
-### Share a map with a friend
-
-On **Maps**, tap **Share** on a calibrated map, then **Send…**, and pick Messages,
-Messenger, AirDrop or email. Your friend gets one file containing the map, your
-calibration and your waypoints. Your trail and photos stay on your phone.
-
-To open it, they tap the file in Messages, then **Share → Save to Files**. In
-You Are Here they tap **Add a map → Choose File** and pick it. It opens ready to
-navigate, with no calibrating needed.
-
 Your maps are saved **in this browser on this phone**. Use the same browser each time,
 not a private tab. If you don't open the app for a few weeks, the browser may clear it.
 
@@ -148,10 +138,8 @@ In **Safari**, tap **Share** (the square with the arrow), then **Add to Home Scr
 opens full-screen like an app, and the phone won't clear its maps after a few weeks of
 not using it.
 
-On iPhone the home-screen app **keeps its own maps**, separate from your browser. To
-move a map over, open the app in your browser, tap **Share** on the map and save the
-file. Then, in the home-screen app, tap **Add a map** and choose that file. It also asks
-for location permission again the first time.
+On iPhone the home-screen app **keeps its own maps**, separate from your browser, so
+add your maps again there. It also asks for location permission again the first time.
 
 ## 7. No signal on the trail
 

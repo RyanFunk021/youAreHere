@@ -36,8 +36,6 @@ street grid (right).</sub></p>
   ⭐ with distance and direction. Share one as a link.
 - **Hike photos:** shown as camera dots, placed by the photo's location or by
   matching its time to your trail.
-- **Share a calibrated map** with a friend by Messages, Messenger or AirDrop. It
-  arrives ready to use.
 - **Private by design:** everything stays on the phone. There's no backend; the
   only network use is map tiles while calibrating.
 

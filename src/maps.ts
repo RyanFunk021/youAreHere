@@ -3,6 +3,9 @@ import { packMap, sendFile } from './share';
 import { DEMO_ID, loadDemo } from './demo';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+// Map sharing is parked for phase 2: on Ryan's iPhone it hung on "Preparing…" (2026-11-17).
+const SHARING = false;
+
 // Launched from the home screen (iOS gives it storage separate from the browser).
 const installed = matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
@@ -21,7 +24,7 @@ export function showMaps(root: HTMLElement, cb: { open(id: string, screen?: 'cal
           <div class="meta">${m.points >= 2 ? `${m.points} points` : 'not calibrated'} · trail ${km(m.trailM)} · ${new Date(m.updated).toLocaleDateString()}</div>
         </button>
         <div class="row-actions">
-          <button class="btn" data-act="share" ${m.points >= 2 ? '' : 'disabled'}>Share</button>
+          ${SHARING ? `<button class="btn" data-act="share" ${m.points >= 2 ? '' : 'disabled'}>Share</button>` : ''}
           <button class="btn" data-act="rename">Rename</button>
           <button class="btn" data-act="clear" ${m.trailM ? '' : 'disabled'}>Clear trail</button>
           <button class="btn danger" data-act="delete">Delete</button>
@@ -35,8 +38,7 @@ export function showMaps(root: HTMLElement, cb: { open(id: string, screen?: 'cal
         <li>Navigate: your GPS dot and trail appear on the map</li>
       </ol>`}
       ${!maps.length && installed ? `<p class="installed-note">You opened You Are Here from your home screen. On iPhone it keeps its own maps,
-        separate from your browser. To bring a map over, open the app in your browser, tap <b>Share</b> on the map
-        and save the file, then <b>Add a map</b> here and choose that file.</p>` : ''}
+        separate from your browser, so add your maps again here.</p>` : ''}
       ${maps.some(m => m.id === DEMO_ID) ? '' : `<button id="demo" class="btn demo">🗺 Try the demo map: Peoria, Illinois in 1905</button>`}
       <p class="howto"><a href="#help">How to use this app →</a></p>
       <p class="storage" id="storage"></p>
