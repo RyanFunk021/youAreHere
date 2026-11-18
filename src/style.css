@@ -67,8 +67,12 @@ main { flex: 1; position: relative; min-height: 0; }
 .locfix .more { display: grid; gap: 10px; }
 .locfix .steps { font-size: 14px; color: #ccc; line-height: 1.4; }
 
-.power { position: absolute; top: 12px; left: 12px; z-index: 1000; padding: 8px 12px; border: 0; border-radius: 18px; background: #1c1c1ee6; color: #eee; font: 14px system-ui; box-shadow: 0 1px 6px #000a; }
-.power.on { background: #30d158; color: #000; }
+.pill { position: absolute; top: 12px; left: 12px; z-index: 1000; padding: 9px 13px; border: 0; border-radius: 18px; background: #1c1c1ee6; color: #eee; font: 600 14px system-ui; box-shadow: 0 1px 6px #000a; }
+.pill.rec { color: #ff6b6b; }
+.pill.paused { color: #ffd60a; }
+.pill.off { color: #aaa; }
+.crop-l { display: grid; gap: 2px; font-size: 14px; color: #ccc; }
+.crop-l input[type=range] { width: 100%; height: 36px; accent-color: #ff2d55; }
 
 .camfab { bottom: 160px; font-size: 22px; color: #fff; }
 .cam { font-size: 20px; line-height: 30px; text-align: center; background: #fff; border-radius: 50%; box-shadow: 0 0 0 2px #ff9f0a, 0 1px 4px #000a; }
@@ -131,3 +135,4 @@ main { flex: 1; position: relative; min-height: 0; }
   .compass svg { width: 56px; height: 56px; }
   .sheet, .locfix { top: 60px; left: 20%; right: 20%; }
 }
+.sheet.bottom { top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); }

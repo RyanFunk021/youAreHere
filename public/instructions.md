@@ -77,8 +77,8 @@ points, one of those is probably mis-tapped.
 ## 3. Navigate
 
 Allow location when asked. The **blue dot** is you. The faint circle around it shows
-how sure the GPS is: expect ±5 m outdoors, and much worse indoors. Your trail is drawn
-in red as you move. The map stays where you put it: pan and pinch freely, even if you
+how sure the GPS is: expect ±5 m outdoors, and much worse indoors. As you move, red
+**dots** mark where you've been. Earlier hikes show as fainter dots. The map stays where you put it: pan and pinch freely, even if you
 go off the edge of the screen. **◎** zooms back to you, and **⤢** shows the whole map.
 
 ![Navigating with the compass aligned](help/05-navigate.jpg)
@@ -88,10 +88,24 @@ is on *your map*. Tap the compass to turn on the phone's compass (iPhone asks fi
 A red needle then points to real north. Hold the phone flat and turn yourself until
 they line up and it says **Map aligned**. Now left on the map is left in front of you.
 
-**Battery.** By default the screen stays on. Tap **Screen stays on** to switch to
-**Battery saver**: the screen can turn off as usual, and your trail is recorded
-whenever you look at the map, joined up in between. A web page can't use GPS while the
-screen is off, so this is the trade-off.
+### Sessions: pause, end, resume, crop
+
+Each hike is a **session**. Opening Navigate starts one, or carries on the one you
+haven't ended. The pill at the top left shows what's happening: **● Recording**,
+**❚❚ Paused** or **■ Not recording**. Tap it for:
+
+- **Pause / Resume:** stop dropping dots while you drive between trailheads or
+  stop for lunch. Pausing doesn't add to your distance.
+- **End session:** this hike is over. The next time you open Navigate, a new one
+  starts.
+- **Resume last:** carry on a session you ended.
+- **Crop:** drag **Start** and **End** to drop dots from before you set off or after
+  you finished, such as the drive home. Grey dots are the ones that will go.
+
+**Battery.** By default the screen stays on. In the same menu you can switch to
+**Battery saver**: the screen can turn off as usual, and dots are dropped whenever you
+look at the map. A web page can't use GPS while the screen is off, so this is the
+trade-off.
 
 ### Waypoints
 
@@ -166,6 +180,11 @@ choose **While Using the App**.
 
 **"Waiting for GPS" for a long time.** You're probably indoors. Step outside or near a
 window. The status shows how long it has waited.
+
+**The map disappeared but my dots are there.** Your position may be off the edge of
+the map. That usually means one calibration pair is wrong, and the status line says
+how far off you are. Tap **⤢** to see the whole map, then re-check your pairs on
+**Calibrate**.
 
 **"screen may sleep."** The phone wouldn't let the app keep the screen on. For a long
 hike, set **Settings → Display & Brightness → Auto-Lock** to a longer time.

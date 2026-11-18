@@ -6,17 +6,28 @@ import type { WarpMode } from './warp';
 
 // Everything lives in IndexedDB on the device.
 //   map:<id>    photo + control points (control points are the source of truth; the fit is derived)
-//   trail:<id>  breadcrumbs as segments, one per Navigate session, so separate rides don't join up
+//   track:<id>  breadcrumb sessions (start / pause / end / crop), replacing trail:<id>
 //   photos:<id> hike photos placed on the map
 //   waypoints:<id> pasted / linked waypoints
 //   maps        small index for the Maps screen, so listing doesn't load every photo
 //   current     id of the last-opened map
 export interface SavedMap { id: string; name: string; blob: Blob; w: number; h: number; points: ControlPoint[]; warp?: WarpMode }
 export interface MapMeta { id: string; name: string; updated: number; points: number; trailM: number }
-// Breadcrumb: [lat, lng, epoch ms]. Time added 2026-11-12 (older crumbs have none);
-// it lets hike photos be placed by when they were taken.
-export type Crumb = [number, number, number?];
+// Breadcrumb: [lat, lng, epoch ms, break?]. Time added 2026-11-12 (older crumbs have
+// none); it lets hike photos be placed by when they were taken. break = 1 marks the
+// first dot after a pause, so distance doesn't count the jump across the pause.
+export type Crumb = [number, number, number?, number?];
 export type Trail = Crumb[][];
+
+// A hike (or walk, or ride) is a session; the map keeps a list of them.
+export interface Session { id: string; started: number; ended?: number; crumbs: Crumb[] }
+export interface Track { sessions: Session[]; active: string | null; paused: boolean }
+export const emptyTrack = (): Track => ({ sessions: [], active: null, paused: false });
+
+// Distance along a session, skipping the jump into a dot marked as a break.
+export const crumbsM = (c: Crumb[]) => c.reduce((m, p, i) => (i && !p[3] ? m + pathM([c[i - 1], p]) : m), 0);
+export const trackM = (t: Track) => t.sessions.reduce((m, s) => m + crumbsM(s.crumbs), 0);
+export const trackTrail = (t: Track): Trail => t.sessions.map(s => s.crumbs);
 
 const INDEX = 'maps', CURRENT = 'current', LEGACY = 'map';
 
@@ -40,17 +51,27 @@ export async function saveMap(m: SavedMap) {
 export async function deleteMap(id: string) {
   await del(`map:${id}`);
   await del(`trail:${id}`);
+  await del(`track:${id}`);
   await del(`photos:${id}`);
   await del(`waypoints:${id}`);
   await update<MapMeta[]>(INDEX, idx => (idx ?? []).filter(x => x.id !== id));
   if ((await getCurrentId()) === id) await del(CURRENT);
 }
 
-export const loadTrail = async (id: string) => (await get<Trail>(`trail:${id}`)) ?? [];
+export async function loadTrack(id: string): Promise<Track> {
+  const t = await get<Track>(`track:${id}`);
+  if (t) return t;
+  // One-time migration: each old trail segment becomes a finished session.
+  const old = (await get<Trail>(`trail:${id}`)) ?? [];
+  const track = emptyTrack();
+  track.sessions = old.filter(c => c.length).map((crumbs, i) => ({ id: `m${i}`, started: crumbs[0][2] ?? 0, ended: crumbs[crumbs.length - 1][2] ?? 0, crumbs }));
+  if (old.length) { await saveTrack(id, track); await del(`trail:${id}`); }
+  return track;
+}
 
-export async function saveTrail(id: string, t: Trail) {
-  await set(`trail:${id}`, t);
-  await touch(id, { trailM: t.reduce((s, seg) => s + pathM(seg), 0) });
+export async function saveTrack(id: string, t: Track) {
+  await set(`track:${id}`, t);
+  await touch(id, { trailM: trackM(t) });
 }
 
 // Read-modify-write in one transaction so trail autosaves and map saves can't clobber each other.

@@ -29,9 +29,9 @@ street grid (right).</sub></p>
   fit error and flags a mis-tapped point.
 - **Flexible fit for ski maps:** painted, panoramic maps get a thin-plate-spline
   warp through every pair instead of one rigid fit.
-- **Navigate:** your live position, a breadcrumb trail saved per map, free
-  pan/zoom, an orienteering compass for lining the map up with the land, and a
-  battery saver.
+- **Navigate:** your live position, breadcrumb dots saved per map in sessions you
+  can pause, end, resume and crop, free pan/zoom, an orienteering compass for
+  lining the map up with the land, and a battery saver.
 - **Waypoints:** paste coordinates or a Google/Apple Maps link to get a highlighted
   ⭐ with distance and direction. Share one as a link.
 - **Hike photos:** shown as camera dots, placed by the photo's location or by

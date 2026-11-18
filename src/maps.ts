@@ -1,4 +1,4 @@
-import { deleteMap, listMaps, loadMap, loadWaypoints, persist, saveMap, saveTrail, type MapMeta } from './store';
+import { deleteMap, emptyTrack, listMaps, loadMap, loadWaypoints, persist, saveMap, saveTrack, type MapMeta } from './store';
 import { packMap, sendFile } from './share';
 import { DEMO_ID, loadDemo } from './demo';
 
@@ -73,7 +73,7 @@ export function showMaps(root: HTMLElement, cb: { open(id: string, screen?: 'cal
       await saveMap({ ...map, name });
     } else if (act === 'clear') {
       if (!confirm(`Clear the saved trail for "${map.name}"?`)) return;
-      await saveTrail(id, []);
+      await saveTrack(id, emptyTrack());
     } else if (act === 'share') {
       // Two taps on purpose: iOS only opens the share sheet straight after a tap, and
       // packing a large map can take longer than that allowance.

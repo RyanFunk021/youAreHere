@@ -1,10 +1,10 @@
 import * as L from 'leaflet';
-import { distM, pathM, type LatLng, type Pt } from './georef';
+import { distM, type LatLng, type Pt } from './georef';
 import { makeWarp } from './warp';
 import { compassWidget } from './compass';
 import { photoMap, pxToSimple } from './photo';
 import { MAX_TRAIL_ACCURACY_M, MIN_TRAIL_STEP_M } from './config';
-import { getSetting, loadPhotos, loadTrail, savePhotos, saveTrail, setSetting, type Crumb, type SavedMap, type Trail } from './store';
+import { crumbsM, getSetting, loadPhotos, loadTrack, newId, savePhotos, saveTrack, setSetting, trackM, trackTrail, type SavedMap, type Session, type Track } from './store';
 import { describe, importPhotos, type HikePhoto } from './photos';
 import { bearingDeg, compass8, esc, parseLatLng, waypointLink, type Waypoint } from './waypoint';
 import { loadWaypoints, saveWaypoints } from './store';
@@ -23,25 +23,48 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   const m = photoMap(root.querySelector<HTMLElement>('#nav')!, url, map.w, map.h);
   const toMap = (p: Pt) => pxToSimple(fit.toPx([p[0], p[1]]));
 
-  // Breadcrumbs are saved per map as lat/lng (so recalibrating re-projects them).
-  // Earlier rides load as their own segments; this session appends a new one.
-  const style = { color: '#ff2d55', weight: 4, opacity: 0.85 };
-  let past: Trail | null = null;      // null until loaded; never save before then
-  let pastM = 0;
-  const seg: Crumb[] = [];
-  let segM = 0;
+  // Breadcrumbs: dots where you've been (no lines between them), grouped into
+  // sessions you can pause, end, resume and crop. Saved per map as lat/lng, so
+  // recalibrating re-projects them. Opening Navigate continues the active session, or
+  // starts a new one if the last was ended.
+  let track: Track | null = null;     // null until loaded; never save before then
+  let session: Session | null = null; // the active session, if any
   let dirty = false;
-  const pastLine = L.polyline([], style).addTo(m);
-  const trail = L.polyline([], style).addTo(m);
-  loadTrail(map.id).then(t => {
-    past = t;
-    pastM = t.reduce((sum, s) => sum + pathM(s), 0);
-    pastLine.setLatLngs(t.map(s => s.map(toMap)));
+  let cropKeep: [number, number] | null = null; // crop preview range (indices into session crumbs)
+  const dotsRenderer = L.canvas({ padding: 0.5 });
+  const dots = L.layerGroup().addTo(m);
+  const DOT_NOW = { renderer: dotsRenderer, radius: 3.5, stroke: false, fillColor: '#ff2d55', fillOpacity: 0.95, interactive: false };
+  const DOT_PAST = { ...DOT_NOW, radius: 2.5, fillColor: '#ff6b81', fillOpacity: 0.5 };
+  const DOT_CUT = { ...DOT_NOW, radius: 2.5, fillColor: '#8e8e93', fillOpacity: 0.35 };
+  const drawDots = () => {
+    dots.clearLayers();
+    for (const s of track?.sessions ?? []) s.crumbs.forEach((c, i) => {
+      const style = s !== cropTarget() || !cropKeep ? (s === session ? DOT_NOW : DOT_PAST) : (i >= cropKeep[0] && i <= cropKeep[1] ? DOT_NOW : DOT_CUT);
+      L.circleMarker(toMap(c), style).addTo(dots);
+    });
+  };
+  const recording = () => !!session && !!track && !track.paused;
+  const lastSession = () => track?.sessions[track.sessions.length - 1] ?? null;
+  const cropTarget = () => session ?? lastSession();
+  const startSession = () => {
+    session = { id: newId(), started: Date.now(), crumbs: [] };
+    track!.sessions.push(session);
+    track!.active = session.id;
+    track!.paused = false;
+    dirty = true;
+  };
+  let breakNext = false; // the next dot follows a pause
+  loadTrack(map.id).then(t => {
+    track = t;
+    session = t.sessions.find(x => x.id === t.active) ?? null;
+    if (!session) startSession();
+    drawDots();
+    renderPill();
   });
   const save = () => {
-    if (!past || !dirty) return;
+    if (!track || !dirty) return;
     dirty = false;
-    saveTrail(map.id, seg.length > 1 ? [...past, seg] : past);
+    saveTrack(map.id, track);
   };
   const autosave = setInterval(save, 5000);
   const onHide = () => { if (document.visibilityState === 'hidden') save(); };
@@ -108,12 +131,16 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     // Status first, so a failure in the map code below can't leave "Waiting…" on screen.
     const ll: LatLng = [latitude, longitude];
     // Skip fixes that are too inaccurate, or too close to the last point (jitter while stopped).
-    if (accuracy <= MAX_TRAIL_ACCURACY_M) {
-      const last = seg[seg.length - 1];
-      const step = last ? distM(last, ll) : 0;
-      if (!last || step >= MIN_TRAIL_STEP_M) { seg.push([latitude, longitude, Date.now()]); segM += step; dirty = true; trail.addLatLng(toMap(ll)); }
+    if (recording() && accuracy <= MAX_TRAIL_ACCURACY_M) {
+      const crumbs = session!.crumbs, last = crumbs[crumbs.length - 1];
+      if (!last || distM(last, ll) >= MIN_TRAIL_STEP_M) {
+        crumbs.push(breakNext && last ? [latitude, longitude, Date.now(), 1] : [latitude, longitude, Date.now()]);
+        breakNext = false;
+        dirty = true;
+        L.circleMarker(toMap(ll), DOT_NOW).addTo(dots);
+      }
     }
-    status.textContent = `±${Math.round(accuracy)} m · this ride ${km(segM)} · total ${km(pastM + segM)}${targetText(ll)}${lockFailed ? ' · screen may sleep' : ''}`;
+    status.textContent = `±${Math.round(accuracy)} m · ${sessionText()}${targetText(ll)}${lockFailed ? ' · screen may sleep' : ''}`;
     here = toMap(ll);
     hereLL = ll;
     // Off the map image? (Usually a bad calibration.) Say how far, and don't fly the
@@ -256,7 +283,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
     photoInput.value = '';
     if (!files.length) return;
     try {
-      const r = await importPhotos(files, [...(past ?? []), seg], hereLL, s => { status.textContent = s; });
+      const r = await importPhotos(files, track ? trackTrail(track) : [], hereLL, s => { status.textContent = s; });
       photos = [...photos, ...r.added];
       await savePhotos(map.id, photos);
       drawPhotos();
@@ -267,9 +294,8 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   });
 
   // Screen: kept on by default. Battery saver lets it sleep; a web page gets no GPS
-  // while the screen is off, so breadcrumbs are then recorded whenever you look at the
-  // map, and joined with straight lines across the gaps.
-  // A silent wake-lock failure looks like a GPS failure mid-ride, so say so in the status.
+  // while the screen is off, so dots are then recorded whenever you look at the map.
+  // A silent wake-lock failure looks like a GPS failure mid-hike, so say so in the status.
   let lock: WakeLockSentinel | undefined;
   let saver = false;
   const grab = async () => {
@@ -279,27 +305,108 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   };
   const onVis = () => { if (document.visibilityState === 'visible') grab(); };
   document.addEventListener('visibilitychange', onVis);
-
-  const power = document.createElement('button');
-  power.className = 'power';
-  root.appendChild(power);
-  const showPower = () => { power.textContent = saver ? '🔋 Battery saver' : '🔆 Screen stays on'; power.classList.toggle('on', saver); };
-  getSetting<boolean>('batterySaver').then(v => { saver = !!v; showPower(); if (!saver) grab(); });
-  power.addEventListener('click', async () => {
-    saver = !saver;
+  getSetting<boolean>('batterySaver').then(v => { saver = !!v; if (!saver) grab(); renderPill(); });
+  const setSaver = async (on: boolean) => {
+    saver = on;
     setSetting('batterySaver', saver);
-    showPower();
-    if (saver) { await lock?.release(); lock = undefined; lockFailed = false; }
-    else grab();
-    status.textContent = saver
-      ? 'Battery saver: screen can sleep. Breadcrumbs record whenever you look at the map.'
-      : 'Screen stays on. Breadcrumbs record continuously.';
-  });
+    if (saver) { await lock?.release(); lock = undefined; lockFailed = false; } else grab();
+  };
+
+  // Session pill (top left): state at a glance; tap for Pause / End / Resume / Crop.
+  const timeOf = (t?: number) => (t ? new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
+  const sessionText = () => !track ? '' : recording()
+    ? `${km(crumbsM(session!.crumbs))} this session · ${km(trackM(track))} total`
+    : track.paused && session ? `paused · ${km(crumbsM(session.crumbs))} this session` : 'not recording';
+  const pill = document.createElement('button');
+  pill.className = 'pill';
+  root.appendChild(pill);
+  function renderPill() {
+    if (!track) return;
+    pill.className = `pill ${recording() ? 'rec' : track.paused && session ? 'paused' : 'off'}`;
+    pill.textContent = (recording() ? '● Recording' : track.paused && session ? '❚❚ Paused' : '■ Not recording') + (saver ? ' · 🔋' : '');
+  }
+  const changed = () => { dirty = true; save(); drawDots(); renderPill(); if (hereLL) status.textContent = sessionText(); };
+
+  const openSessionSheet = () => {
+    if (!track) return;
+    const s = session, last = lastSession();
+    const info = (x: Session) => `Started ${new Date(x.started).toLocaleDateString()} ${timeOf(x.started)} · ${km(crumbsM(x.crumbs))} · ${x.crumbs.length} dots`;
+    const el = sheet(`<div class="msg">${s ? (recording() ? '● Recording this session' : '❚❚ Session paused') : '■ Not recording'}</div>
+      <div class="sub">${s ? info(s) : last ? 'Last session: ' + info(last) : 'No sessions yet'}</div>
+      <div class="row">${s
+        ? `${recording() ? '<button class="btn" data-s="pause">❚❚ Pause</button>' : '<button class="btn on" data-s="resume">▶ Resume</button>'}<button class="btn danger" data-s="end">■ End session</button>`
+        : `<button class="btn on" data-s="start">▶ Start new session</button>${last ? '<button class="btn" data-s="resumelast">↺ Resume last</button>' : ''}`}</div>
+      ${(s ?? last)?.crumbs.length ? `<div class="row"><button class="btn" data-s="crop">✂ Crop ${s ? 'this' : 'last'} session</button></div>` : ''}
+      <div class="row"><button class="btn" data-s="saver">${saver ? '🔋 Battery saver is on: screen can sleep' : '🔆 Screen stays on: tap for battery saver'}</button></div>
+      <div class="row"><button class="btn on" data-s="close">Close</button></div>`);
+    el.addEventListener('click', e => {
+      const a = (e.target as HTMLElement).dataset.s;
+      if (!a) return;
+      if (a === 'pause') { track!.paused = true; breakNext = true; }
+      if (a === 'resume') track!.paused = false;
+      if (a === 'end' && s) {
+        s.ended = Date.now();
+        if (s.crumbs.length < 2) track!.sessions = track!.sessions.filter(x => x !== s); // nothing worth keeping
+        track!.active = null; track!.paused = false; session = null;
+      }
+      if (a === 'start') startSession();
+      if (a === 'resumelast' && last) { delete last.ended; session = last; track!.active = last.id; track!.paused = false; breakNext = true; }
+      if (a === 'saver') { setSaver(!saver); }
+      if (a === 'crop') { el.remove(); openCrop(); return; }
+      if (a === 'close') { el.remove(); return; }
+      changed();
+      openSessionSheet(); // refresh the sheet's buttons
+      if (a === 'end') el.remove();
+    });
+  };
+  pill.addEventListener('click', openSessionSheet);
+
+  // Crop: drag the start and end to drop dots from before you set off or after you
+  // finished (e.g. the drive home). Kept dots stay red; cropped ones turn grey.
+  const openCrop = () => {
+    const s = cropTarget();
+    if (!s || s.crumbs.length < 2) return;
+    const n = s.crumbs.length;
+    cropKeep = [0, n - 1];
+    const el = sheet(`<div class="msg">✂ Crop ${s === session ? 'this' : 'last'} session</div>
+      <div class="sub crop-info"></div>
+      <label class="crop-l">Start<input type="range" class="c0" min="0" max="${n - 1}" value="0"></label>
+      <label class="crop-l">End<input type="range" class="c1" min="0" max="${n - 1}" value="${n - 1}"></label>
+      <div class="row"><button class="btn" data-c="cancel">Cancel</button><button class="btn on" data-c="apply">Crop</button></div>`);
+    el.classList.add('bottom'); // keep the dots visible above the sheet while cropping
+    m.fitBounds(L.latLngBounds(s.crumbs.map(c => toMap(c))), { paddingTopLeft: [30, 90], paddingBottomRight: [30, el.offsetHeight + 40], maxZoom: 1 });
+    userMoved = true;
+    const c0 = el.querySelector<HTMLInputElement>('.c0')!, c1 = el.querySelector<HTMLInputElement>('.c1')!;
+    const update = () => {
+      let a = +c0.value, b = +c1.value;
+      if (a > b) [a, b] = [b, a];
+      cropKeep = [a, b];
+      const kept = s.crumbs.slice(a, b + 1);
+      el.querySelector('.crop-info')!.textContent = `${timeOf(kept[0][2])} → ${timeOf(kept[kept.length - 1][2])} · keeps ${km(crumbsM(kept))} · ${kept.length} of ${n} dots`;
+      drawDots();
+    };
+    c0.addEventListener('input', update);
+    c1.addEventListener('input', update);
+    update();
+    el.addEventListener('click', e => {
+      const a = (e.target as HTMLElement).dataset.c;
+      if (!a) return;
+      if (a === 'apply' && cropKeep) {
+        s.crumbs = s.crumbs.slice(cropKeep[0], cropKeep[1] + 1);
+        if (s.crumbs[0]) s.crumbs[0] = [s.crumbs[0][0], s.crumbs[0][1], s.crumbs[0][2]]; // no break before the first dot
+        s.started = s.crumbs[0]?.[2] ?? s.started;
+        if (s.ended) s.ended = s.crumbs[s.crumbs.length - 1]?.[2] ?? s.ended;
+      }
+      cropKeep = null;
+      el.remove();
+      changed();
+    });
+  };
 
   return () => {
     removeCompass();
     fix.remove();
-    power.remove();
+    pill.remove();
     root.querySelector('.lightbox')?.remove();
     root.querySelector('.sheet')?.remove();
     save();
