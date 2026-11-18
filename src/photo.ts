@@ -17,12 +17,14 @@ const PhotoTiles = L.GridLayer.extend({
     L.setOptions(this, options);
   },
   createTile(this: L.GridLayer & { _img: HTMLImageElement; _ready: Promise<void> }, coords: L.Coords, done: L.DoneCallback) {
-    const size = this.getTileSize(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Each tile is drawn 1 px larger than its slot (257 px of map into a 257 px box, so
+    // content stays aligned) to cover the hairline seams fractional zoom leaves between tiles.
+    const size = this.getTileSize(), dpr = Math.min(window.devicePixelRatio || 1, 2), over = (size.x + 1) / size.x;
     const tile = document.createElement('canvas');
-    tile.width = size.x * dpr;
-    tile.height = size.y * dpr;
+    tile.width = Math.ceil((size.x + 1) * dpr);
+    tile.height = Math.ceil((size.y + 1) * dpr);
     this._ready.then(() => {
-      const s = size.x / 2 ** coords.z; // image px per tile
+      const s = (size.x / 2 ** coords.z) * over; // image px per (enlarged) tile
       const g = tile.getContext('2d')!;
       g.imageSmoothingQuality = 'high';
       // Clip the source to the image so the destination keeps the right proportion.
@@ -44,7 +46,7 @@ export function photoMap(el: HTMLElement, url: string, w: number, h: number) {
   const img = new Image();
   img.src = url;
   // minZoom matters: GridLayer defaults to 0, and fitting a 4000 px photo on a phone needs ≈ −3.5.
-  new PhotoTiles(img, img.decode(), { bounds, tileSize: 256, keepBuffer: 1, updateWhenZooming: false, minZoom: -6, maxZoom: 4 }).addTo(m);
+  new PhotoTiles(img, img.decode(), { bounds, tileSize: 256, keepBuffer: 1, updateWhenZooming: false, minZoom: -6, maxZoom: 4, className: 'photo-tiles' }).addTo(m);
   // An invisible outline of the image, so other code (and tests) can find its extent.
   L.rectangle(bounds, { stroke: false, fill: false, interactive: false, className: 'photo-bounds' }).addTo(m);
   m.fitBounds(bounds);

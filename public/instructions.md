@@ -77,8 +77,8 @@ points, one of those is probably mis-tapped.
 ## 3. Navigate
 
 Allow location when asked. The **blue dot** is you. The faint circle around it shows
-how sure the GPS is: expect ±5 m outdoors, and much worse indoors. As you move, red
-**dots** mark where you've been. Earlier hikes show as fainter dots. The map stays where you put it: pan and pinch freely, even if you
+how sure the GPS is: expect ±5 m outdoors, and much worse indoors. As you move,
+**purple dots** mark where you've been. Earlier hikes show as fainter dots. The map stays where you put it: pan and pinch freely, even if you
 go off the edge of the screen. **◎** zooms back to you, and **⤢** shows the whole map.
 
 ![Navigating with the compass aligned](help/05-navigate.jpg)
@@ -101,6 +101,8 @@ haven't ended. The pill at the top left shows what's happening: **● Recording*
 - **Resume last:** carry on a session you ended.
 - **Crop:** drag **Start** and **End** to drop dots from before you set off or after
   you finished, such as the drive home. Grey dots are the ones that will go.
+
+![The session menu](help/09-session.jpg)
 
 **Battery.** By default the screen stays on. In the same menu you can switch to
 **Battery saver**: the screen can turn off as usual, and dots are dropped whenever you

@@ -33,9 +33,11 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
   let cropKeep: [number, number] | null = null; // crop preview range (indices into session crumbs)
   const dotsRenderer = L.canvas({ padding: 0.5 });
   const dots = L.layerGroup().addTo(m);
-  const DOT_NOW = { renderer: dotsRenderer, radius: 3.5, stroke: false, fillColor: '#ff2d55', fillOpacity: 0.95, interactive: false };
-  const DOT_PAST = { ...DOT_NOW, radius: 2.5, fillColor: '#ff6b81', fillOpacity: 0.5 };
-  const DOT_CUT = { ...DOT_NOW, radius: 2.5, fillColor: '#8e8e93', fillOpacity: 0.35 };
+  // Vivid purple with a white ring: trail maps draw trails in red, orange, brown and
+  // black, and same-coloured dots vanish on top of them (the first screenshots did).
+  const DOT_NOW = { renderer: dotsRenderer, radius: 4, color: '#ffffff', weight: 1.5, fillColor: '#bf2cf0', fillOpacity: 1, interactive: false };
+  const DOT_PAST = { ...DOT_NOW, radius: 3, fillColor: '#d98bf5', fillOpacity: 0.8, opacity: 0.7 };
+  const DOT_CUT = { ...DOT_NOW, radius: 3, fillColor: '#8e8e93', fillOpacity: 0.5, opacity: 0.4 };
   const drawDots = () => {
     dots.clearLayers();
     for (const s of track?.sessions ?? []) s.crumbs.forEach((c, i) => {
@@ -140,7 +142,7 @@ export function showNavigate(root: HTMLElement, map: SavedMap) {
         L.circleMarker(toMap(ll), DOT_NOW).addTo(dots);
       }
     }
-    status.textContent = `±${Math.round(accuracy)} m · ${sessionText()}${targetText(ll)}${lockFailed ? ' · screen may sleep' : ''}`;
+    status.textContent = [`±${Math.round(accuracy)} m`, sessionText(), targetText(ll).replace(/^ · /, ''), lockFailed ? 'screen may sleep' : ''].filter(Boolean).join(' · ');
     here = toMap(ll);
     hereLL = ll;
     // Off the map image? (Usually a bad calibration.) Say how far, and don't fly the
